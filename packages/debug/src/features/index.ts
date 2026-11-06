@@ -1,6 +1,7 @@
 import type { FeatureId } from '../adapter/types';
 import type { DebugFeature } from '../core/types';
 import { inspectorFeature } from './inspector';
+import { searchFeature } from './search';
 import { watchFeature } from './watch';
 
 /**
@@ -9,7 +10,8 @@ import { watchFeature } from './watch';
  */
 export const BUILTIN_FEATURES: Partial<Record<FeatureId, DebugFeature>> = {
     inspector: inspectorFeature,
-    watch: watchFeature
+    watch: watchFeature,
+    search: searchFeature
 };
 
 /** The order in which features are set up. */

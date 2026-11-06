@@ -34,3 +34,7 @@
 .kd-color { width: 18px; height: 16px; padding: 0; border: none; background: none; cursor: pointer; }
 .kd-outline { background: transparent; border-style: dashed; }
 .kd-outline-index { position: absolute; top: -1px; left: -1px; padding: 0 3px; background: var(--kp-bg); color: var(--kp-fg); font-size: 10px; }
+
+/* Search */
+.kd-search-input { width: 100%; box-sizing: border-box; margin-bottom: 6px; }
+.kd-result { padding-left: 4px; }
