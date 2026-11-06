@@ -1,6 +1,6 @@
-import { describeElement } from '@kiwi-js/dom';
+import { describeElement, keepState } from '@kiwi-js/dom';
 import {
-    badge, button, div, keepState, link, placeBox, renderDetails, renderSection, span,
+    badge, button, div, link, placeBox, renderDetails, renderSection, span,
     type HotkeyBinding, type PanelContext, type PanelDefinition, type PanelHandle
 } from '@kiwi-js/panels';
 

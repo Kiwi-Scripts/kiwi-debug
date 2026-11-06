@@ -1,13 +1,15 @@
 import type { FeatureId } from '../adapter/types';
 import type { DebugFeature } from '../core/types';
 import { inspectorFeature } from './inspector';
+import { watchFeature } from './watch';
 
 /**
  * The built-in features. Their order is the order in which they are set up: services come before the features that use them.
  * Features that are not implemented yet are missing and silently skipped.
  */
 export const BUILTIN_FEATURES: Partial<Record<FeatureId, DebugFeature>> = {
-    inspector: inspectorFeature
+    inspector: inspectorFeature,
+    watch: watchFeature
 };
 
 /** The order in which features are set up. */
