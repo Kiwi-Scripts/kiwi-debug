@@ -1,2 +1,2 @@
-// Planned (see docs/kiwi-debug-spec.md, section 3): FrameworkAdapter and its capability types, ADAPTER_CONTRACT, defineAdapter
-export {};
+export * from './types';
+export { ADAPTER_CONTRACT, SUPPORTED_CONTRACTS, checkAdapter, defineAdapter, guardAdapter } from './define';
