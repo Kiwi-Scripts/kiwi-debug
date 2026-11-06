@@ -1,1 +1,29 @@
 /* kiwi-debug styles. The panels' design tokens (--kp-*) are reused; classes here are prefixed kd-. */
+
+/* Outlines over page elements. The hovered one is dashed, the inspected one solid (the kp-highlight default). */
+.kd-hover { border-style: dashed; background: transparent; }
+.kd-target { background: color-mix(in srgb, var(--kp-accent) 10%, transparent); }
+
+/* A floating inspector never covers more than most of the viewport; a docked one is full height (panels). */
+.kd-inspector:not(.kp-docked-left):not(.kp-docked-right) { max-height: 80vh; }
+
+.kd-head { padding-bottom: 6px; }
+.kd-hint { padding: 4px 0; }
+.kd-group { margin-top: 2px; }
+.kd-row { flex-wrap: wrap; overflow-wrap: anywhere; }
+.kd-name { color: var(--kp-fg); }
+.kd-name.kd-inputs { color: #7cc05b; }
+.kd-name.kd-outputs { color: var(--kp-info); }
+.kd-name.kd-properties { color: #d66ad6; }
+.kd-name.kd-form { color: #e5c07b; }
+.kd-value { cursor: pointer; }
+.kd-value:hover { text-decoration: underline; }
+.kd-was { cursor: pointer; }
+.kd-changed .kd-value { color: var(--kp-accent); }
+.kd-flash { animation: kd-flash 1s ease-out; }
+@keyframes kd-flash { from { background: color-mix(in srgb, var(--kp-accent) 45%, transparent); } to { background: transparent; } }
+.kd-watch { opacity: 0.7; }
+.kd-watch.kp-on { opacity: 1; }
+.kd-relation { gap: 6px; }
+.kd-selected { background: var(--kp-bg-hover); }
+.kd-rendering { background: var(--kp-accent); color: var(--kp-accent-fg); }
