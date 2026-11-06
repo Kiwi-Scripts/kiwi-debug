@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "strictNullChecks": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "types": [
+      "node"
+    ],
+    // The workspace packages resolve to their sources, so that type checking and tests need no build. Keep in sync with tooling/aliases.ts.
+    "paths": {
+      "@kiwi-js/debug": ["./packages/debug/src/index.ts"],
+      "@kiwi-js/debug/adapter": ["./packages/debug/src/adapter/index.ts"],
+      "@kiwi-js/debug/testkit": ["./packages/debug/src/adapter/testkit.ts"]
+    }
+  }
+}
