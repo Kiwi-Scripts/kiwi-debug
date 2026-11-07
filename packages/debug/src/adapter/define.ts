@@ -51,6 +51,7 @@ function guardUnits( units: UnitsApi, guardSection: ( section: Section ) => Sect
         describe: unit => safeOr( () => units.describe( unit ) ?? UNKNOWN_UNIT, UNKNOWN_UNIT ),
         // `Member.read` is left as it is: a value that cannot be read is displayed as `?` by the caller.
         members: unit => safeOr<Member[]>( () => Array.from( units.members( unit ) ), [] ),
+        instance: units.instance && (unit => safe( () => units.instance!( unit ) )),
         owner: units.owner && (el => safe( () => units.owner!( el ) )),
         sections: units.sections && (el => safeOr( () => Array.from( units.sections!( el ) ).map( guardSection ), [] ))
     };

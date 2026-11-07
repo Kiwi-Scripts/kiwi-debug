@@ -69,6 +69,11 @@ export interface UnitsApi {
     describe( unit: Unit ): UnitDescription;
     /** Inputs, outputs and state of a unit. The core adds form rows (`forms.controlOf`) and change tracking. */
     members( unit: Unit ): Member[];
+    /**
+     * The object behind a unit (the component or directive instance), the starting point of the expressions of the watch list.
+     * Identity-stable like the unit itself. Without it, expressions start at the members.
+     */
+    instance?( unit: Unit ): object | undefined;
     /** The component whose template created the element. */
     owner?( el: Element ): Unit | undefined;
     /** Extra, lazily read information for an element: injector, context, listeners, providers, … */

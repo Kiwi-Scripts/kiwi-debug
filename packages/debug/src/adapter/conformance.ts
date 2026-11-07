@@ -68,6 +68,17 @@ export function runAdapterConformance( adapter: FrameworkAdapter, fixture: Confo
         }
     } );
 
+    check( 'instance', () => {
+        for ( const el of fixture.elements ) {
+            for ( const unit of unitsOf( el ) ) {
+                const instance = adapter.units.instance?.( unit );
+                if ( instance !== undefined && ( typeof instance !== 'object' || instance !== adapter.units.instance!( unit ) ) ) {
+                    return `instance( ${adapter.units.describe( unit ).name} ) is not the same object every time`;
+                }
+            }
+        }
+    } );
+
     check( 'no-throw', () => {
         for ( const el of fixture.elements ) {
             adapter.units.owner?.( el );

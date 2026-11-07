@@ -21,6 +21,8 @@ export interface FakeUnitSpec {
     inputs?: Record<string, unknown>;
     outputs?: Record<string, unknown>;
     properties?: Record<string, unknown>;
+    /** Own state of the instance that is not a member (private fields, services, …). */
+    state?: Record<string, unknown>;
 }
 
 /** A unit of the fake framework: a plain object whose members are plain properties. */
@@ -31,6 +33,8 @@ export interface FakeUnit {
     readonly inputs: Record<string, unknown>;
     readonly outputs: Record<string, unknown>;
     readonly properties: Record<string, unknown>;
+    /** The object behind the unit: a live view of its members, so that expressions can read them. Never replaced. */
+    readonly instance: Record<string, unknown>;
 }
 
 /** A reactive node of the fake framework. */
@@ -247,9 +251,16 @@ export class FakeWorld {
 
     /** Adds a unit; those on the same element are listed component first. */
     unit( spec: FakeUnitSpec ): FakeUnit {
+        const bags = { inputs: { ...spec.inputs }, outputs: { ...spec.outputs }, properties: { ...spec.properties }, state: { ...spec.state } };
+        const order = [bags.state, bags.inputs, bags.outputs, bags.properties];
+        const instance = new Proxy( {} as Record<string, unknown>, {
+            get: ( _t, key ) => ( order.find( bag => key in bag ) as Record<string | symbol, unknown> | undefined )?.[key],
+            has: ( _t, key ) => order.some( bag => key in bag ),
+            ownKeys: () => Array.from( new Set( order.flatMap( bag => Object.keys( bag ) ) ) ),
+            getOwnPropertyDescriptor: ( _t, key ) => order.some( bag => key in bag ) ? { configurable: true, enumerable: true, writable: true } : undefined
+        } );
         const unit: FakeUnit = {
-            name: spec.name, kind: spec.kind ?? 'component', element: spec.element ?? null,
-            inputs: { ...spec.inputs }, outputs: { ...spec.outputs }, properties: { ...spec.properties }
+            name: spec.name, kind: spec.kind ?? 'component', element: spec.element ?? null, ...bags, instance
         };
         if ( unit.element ) {
             const list = this.#units.get( unit.element ) ?? [];
@@ -404,6 +415,7 @@ export function fakeAdapter( options: FakeAdapterOptions = {} ): FakeAdapter {
             at: el => world.unitsAt( el ),
             describe,
             members,
+            instance: unit => ( unit as FakeUnit ).instance,
             owner: el => world.ownerOf( el ),
             sections: el => world.sectionsOf( el )
         },

@@ -68,6 +68,12 @@ describe( 'guardAdapter', () => {
         expect( fire ).not.toThrow();
     } );
 
+    it( 'guards instance and keeps it absent when the adapter has none', () => {
+        expect( guardAdapter( base() ).units.instance ).toBeUndefined();
+        const guarded = guardAdapter( { ...base(), units: { ...base().units, instance: boom } } );
+        expect( guarded.units.instance!( {} ) ).toBeUndefined();
+    } );
+
     it( 'guards sections lazily', () => {
         const guarded = guardAdapter( {
             ...base(),

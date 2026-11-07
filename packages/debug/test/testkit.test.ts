@@ -19,6 +19,18 @@ describe( 'fakeAdapter', () => {
         expect( adapter.units.members( comp ).map( m => [m.group, m.name, m.read()] ) ).toEqual( [['inputs', 'title', 'x'], ['properties', 'n', 1]] );
     } );
 
+    it( 'gives each unit one live instance that shows members and own state', () => {
+        const { host } = page();
+        const adapter = fakeAdapter();
+        const unit = adapter.world.unit( { name: 'Card', element: host, inputs: { title: 'x' }, state: { secret: 1 } } );
+        const instance = adapter.units.instance!( unit ) as Record<string, unknown>;
+        expect( adapter.units.instance!( unit ) ).toBe( instance );
+        expect( [instance.title, instance.secret, 'title' in instance, 'nope' in instance] ).toEqual( ['x', 1, true, false] );
+        unit.inputs.title = 'y';
+        expect( instance.title ).toBe( 'y' );
+        expect( Object.keys( instance ).sort() ).toEqual( ['secret', 'title'] );
+    } );
+
     it( 'provides only the requested capabilities', () => {
         const adapter = fakeAdapter( { capabilities: ['addressing'] } );
         expect( adapter.reactivity ).toBeUndefined();
@@ -99,7 +111,7 @@ describe( 'runAdapterConformance', () => {
             profilerHookInstalled: () => adapter.world.profilerActive
         } );
         assertConformance( report );
-        expect( report.passed ).toEqual( expect.arrayContaining( ['contract', 'identity', 'no-throw', 'units-order', 'node-symmetry', 'version-monotonic', 'addressing', 'profiler-balance', 'profiler-zero-cost'] ) );
+        expect( report.passed ).toEqual( expect.arrayContaining( ['contract', 'identity', 'instance', 'no-throw', 'units-order', 'node-symmetry', 'version-monotonic', 'addressing', 'profiler-balance', 'profiler-zero-cost'] ) );
     } );
 
     it( 'skips checks of absent capabilities', () => {
