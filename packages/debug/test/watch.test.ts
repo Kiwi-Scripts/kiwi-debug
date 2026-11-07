@@ -4,6 +4,7 @@ import { guardAdapter } from '../src/adapter';
 import { fakeAdapter, type FakeAdapter } from '../src/adapter/testkit';
 import { createDebugContext } from '../src/core/context';
 import { mountOverlay } from '../src/core/mount';
+import { DEFAULT_ACTIONS } from '../src/core/builtin-actions';
 import type { EffectiveOptions } from '../src/core/types';
 import { createWatchModel, RESTORE_FOR_MS } from '../src/features/watch/model';
 
@@ -11,7 +12,7 @@ let fake: FakeAdapter;
 let dispose: ( () => void ) | undefined;
 
 const options = ( over: Partial<EffectiveOptions> = {} ): EffectiveOptions => ( {
-    adapter: fake, key: 'Alt', trackedColors: [], profileRenders: false, scope: undefined,
+    adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined,
     features: ['inspector', 'watch'], overlay: { storage: false as never }, ...over
 } );
 

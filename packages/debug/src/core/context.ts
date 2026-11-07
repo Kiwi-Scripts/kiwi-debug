@@ -2,6 +2,8 @@ import { placeBox } from '@kiwi-js/dom';
 import { button, div, type Overlay } from '@kiwi-js/panels';
 
 import type { GuardedAdapter } from '../adapter/types';
+import { createActionRegistry } from './actions';
+import { registerBuiltinActions } from './builtin-actions';
 import { createServices, InspectedElement } from './services';
 import type { DebugContext, EffectiveOptions } from './types';
 import { createUnitReaders } from './units';
@@ -21,6 +23,8 @@ export interface ContextHandle {
 export function createDebugContext( { overlay, adapter, options }: ContextInit ): ContextHandle {
     const readers = createUnitReaders( adapter, el => overlay.inOverlay( el ) );
     const services = createServices();
+    const actions = createActionRegistry( options.actions );
+    registerBuiltinActions( actions );
     const runOutside = <T>( fn: () => T ): T => adapter.env.runOutside ? adapter.env.runOutside( fn ) : fn();
 
     let hover: Element | null = null;
@@ -44,6 +48,7 @@ export function createDebugContext( { overlay, adapter, options }: ContextInit )
         adapter,
         options,
         ...readers,
+        actions,
         provide: services.provide,
         use: services.use,
         isHeld: ev => overlay.modifier ? overlay.modifier.isHeld( ev ) : true,

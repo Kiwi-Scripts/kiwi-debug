@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeAdapter, type FakeAdapter } from '../src/adapter/testkit';
 import { mountOverlay } from '../src/core/mount';
+import { DEFAULT_ACTIONS } from '../src/core/builtin-actions';
 import type { EffectiveOptions } from '../src/core/types';
 import { groupByName, haystackOf, isEmptyQuery, matchEntries, matchFields, parseQuery, type SearchEntry } from '../src/features/search/query';
 
@@ -50,7 +51,7 @@ describe( 'search feature', () => {
     let dispose: ( () => void ) | undefined;
 
     const options = (): EffectiveOptions => ( {
-        adapter: fake, key: 'Alt', trackedColors: [], profileRenders: false, scope: undefined,
+        adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined,
         features: ['search', 'watch'], overlay: { storage: false as never }
     } );
     const shadow = (): ShadowRoot => document.querySelector( 'kiwi-panels' )!.shadowRoot!;

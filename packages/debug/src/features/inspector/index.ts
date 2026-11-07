@@ -143,18 +143,14 @@ function setup( ctx: DebugContext ): FeatureInstance {
 
     const renderUnit = ( el: Element, info: UnitInfo, index: number, snapshot: Snapshot ): HTMLElement => {
         const target = { unit: info.unit, element: el };
-        const head: ( Node | string )[] = [view.nameLink( target )];
+        const head: ( Node | string )[] = [...view.unitActions( target, 'inspector', 'leading' ), view.nameLink( target )];
         if ( info.kind !== 'component' ) {
             head.push( badge( info.kind ) );
         }
-        for ( const extra of [view.watchIcon( target ), view.graphIcon( target ), view.profileBadge( info.unit )] ) {
-            if ( extra ) {
-                head.push( extra );
-            }
-        }
-        const address = adapter.addressing?.of( info.unit, el );
-        if ( address !== undefined ) {
-            head.push( button( '⌖', 'Log the address of this unit', () => logGroup( info.name, [['address', address]] ), { mini: true } ) );
+        head.push( ...view.unitActions( target, 'inspector', 'trailing' ) );
+        const profile = view.profileBadge( info.unit );
+        if ( profile ) {
+            head.push( profile );
         }
         return renderDetails( {
             className: 'kp-dir kd-unit',
@@ -162,7 +158,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             open: index === 0,
             headRow: true,
             head,
-            body: () => view.rowGroups( target, info.rows, { scope: info.name, changes, snapshot, rowIcon: 'track' } )
+            body: () => view.rowGroups( target, info.rows, { surface: 'inspector', scope: info.name, changes, snapshot } )
         } );
     };
 

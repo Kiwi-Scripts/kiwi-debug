@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeAdapter, type FakeAdapter } from '../src/adapter/testkit';
+import { DEFAULT_ACTIONS } from '../src/core/builtin-actions';
 import { mountOverlay } from '../src/core/mount';
 import type { DebugFeature, EffectiveOptions } from '../src/core/types';
 
@@ -7,7 +8,7 @@ let fake: FakeAdapter;
 let dispose: ( () => void ) | undefined;
 
 const options = ( over: Partial<EffectiveOptions> = {} ): EffectiveOptions => ( {
-    adapter: fake, key: 'Alt', trackedColors: [], profileRenders: false, scope: undefined,
+    adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined,
     features: ['inspector'], overlay: { storage: false as never }, ...over
 } );
 

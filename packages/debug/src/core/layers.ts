@@ -1,6 +1,8 @@
 import { localStorageAdapter, createDormantLauncher, type StorageAdapter } from '@kiwi-js/panels';
 
 import { checkAdapter, guardAdapter } from '../adapter/define';
+import { actionIds, type ActionLists } from './actions';
+import { DEFAULT_ACTIONS } from './builtin-actions';
 import { ALL_FEATURE_IDS } from '../features';
 import { DEFAULT_TRACKED_COLORS } from '../features/watch/model';
 import { logWarn } from './console';
@@ -39,10 +41,16 @@ function effectiveOptions(): ( EffectiveOptions & { disabled: boolean } ) | unde
     }
     const merged: DebugOptions = {};
     const overlay: NonNullable<DebugOptions['overlay']> = {};
+    const actions: Partial<ActionLists> = {};
     for ( const { options } of layers ) {
         for ( const [name, value] of Object.entries( options ) as Array<[keyof DebugOptions, unknown]> ) {
-            if ( value !== undefined && name !== 'adapter' && name !== 'scope' && name !== 'overlay' ) {
+            if ( value !== undefined && name !== 'adapter' && name !== 'scope' && name !== 'overlay' && name !== 'actions' ) {
                 ( merged as Record<string, unknown> )[name] = value;
+            }
+        }
+        for ( const kind of ['row', 'unit'] as const ) {
+            if ( options.actions?.[kind] ) {
+                actions[kind] = options.actions[kind];
             }
         }
         for ( const [name, value] of Object.entries( options.overlay ?? {} ) ) {
@@ -63,6 +71,7 @@ function effectiveOptions(): ( EffectiveOptions & { disabled: boolean } ) | unde
         profileRenders: merged.profileRenders ?? false,
         features: merged.features ?? [...ALL_FEATURE_IDS],
         overlay,
+        actions: { row: actions.row ?? DEFAULT_ACTIONS.row, unit: actions.unit ?? DEFAULT_ACTIONS.unit },
         disabled: !!merged.disabled
     };
 }
@@ -71,7 +80,7 @@ const featureIds = ( options: EffectiveOptions ): string[] => options.features.m
 
 /** What the live overlay was built from: a change of any of these rebuilds it. */
 const signatureOf = ( options: EffectiveOptions, off: boolean ): string =>
-    JSON.stringify( [options.key, options.trackedColors, options.profileRenders, off, featureIds( options )] );
+    JSON.stringify( [options.key, options.trackedColors, options.profileRenders, off, featureIds( options ), actionIds( options.actions.row ), actionIds( options.actions.unit )] );
 
 function mountDormant( options: EffectiveOptions ): () => void {
     const launcher = createDormantLauncher( {

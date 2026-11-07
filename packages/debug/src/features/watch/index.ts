@@ -101,14 +101,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         if ( unseen ) {
             head.push( badge( `${unseen} changed` ) );
         }
-        const keep = button( '▣', 'Keep the element outlined', () => model.toggleOutline( entry.element ), { mini: true, on: model.isOutlined( entry.element ) } );
-        const open = button( '⧉', 'Show the whole unit below', () => {
-            side = target;
-            signature = '';
-            refresh();
-        }, { mini: true } );
-        const remove = button( '✕', 'Stop tracking', () => model.remove( entry.id ), { mini: true } );
-        head.push( keep, open, remove );
+        head.push( ...view.unitActions( target, 'watch', 'trailing' ) );
 
         const details = renderDetails( {
             className: 'kp-dir kd-entry',
@@ -117,7 +110,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             headRow: true,
             head,
             body: () => view.rowGroups( target, model.rowsOf( entry ), {
-                scope: entry.id, changes, snapshot, rowIcon: 'untrack', collapsible: false
+                surface: 'watch', scope: entry.id, changes, snapshot, collapsible: false
             } ),
             onToggle: expanded => {
                 entry.expanded = expanded;
@@ -143,7 +136,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             signature = '';
             refresh();
         }, { mini: true } );
-        return renderSection( `Unit ${name}`, close, ...view.rowGroups( target, ctx.rowsOf( target.unit ), { scope: `side:${name}`, changes, rowIcon: 'track', open: () => true } ) );
+        return renderSection( `Unit ${name}`, close, ...view.rowGroups( target, ctx.rowsOf( target.unit ), { surface: 'side', scope: `side:${name}`, changes, open: () => true } ) );
     };
 
     const draw = ( snapshot: ReturnType<typeof changes.snapshot> ): void => {
@@ -235,6 +228,31 @@ function setup( ctx: DebugContext ): FeatureInstance {
         }
     };
 
+    const entryOf = ( c: { target: { unit: unknown } } ): WatchEntry | undefined => model.entries.find( e => e.unit === c.target.unit );
+    const offActions = [
+        ctx.actions.register( 'unit', {
+            id: 'keep', icon: '▣', surfaces: ['watch'], title: 'Keep the element outlined',
+            isOn: c => !!c.target.element && model.isOutlined( c.target.element ),
+            run: c => c.target.element && model.toggleOutline( c.target.element )
+        } ),
+        ctx.actions.register( 'unit', {
+            id: 'side', icon: '⧉', surfaces: ['watch'], title: 'Show the whole unit below',
+            run: c => {
+                side = c.target;
+                signature = '';
+                refresh();
+            }
+        } ),
+        ctx.actions.register( 'unit', {
+            id: 'remove', icon: '✕', surfaces: ['watch'], title: 'Stop tracking',
+            run: c => {
+                const entry = entryOf( c );
+                if ( entry ) {
+                    model.remove( entry.id );
+                }
+            }
+        } )
+    ];
     const offService = ctx.provide( Tracking, model.tracking );
     const reposition = (): void => syncOutlines();
 
@@ -244,6 +262,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         dispose() {
             offChange();
             offService();
+            offActions.forEach( off => off() );
             model.dispose();
             outlines.forEach( box => box.remove() );
             outlines.clear();

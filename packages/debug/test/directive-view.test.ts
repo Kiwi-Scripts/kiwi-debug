@@ -6,6 +6,7 @@ import { createChangeTracker } from '../src/core/change-tracker';
 import { createDebugContext, type ContextHandle } from '../src/core/context';
 import { createDirectiveView } from '../src/core/directive-view';
 import { InspectedElement, Profiler, Tracking } from '../src/core/services';
+import { DEFAULT_ACTIONS } from '../src/core/builtin-actions';
 import type { EffectiveOptions } from '../src/core/types';
 
 let overlay: Overlay;
@@ -15,7 +16,7 @@ let fake: FakeAdapter;
 function setup( capabilities?: Parameters<typeof fakeAdapter>[0] ) {
     fake = fakeAdapter( capabilities );
     overlay = createOverlay( { storage: false, hotkeys: { modifier: 'Alt' } } );
-    const options = { adapter: fake, key: 'Alt', trackedColors: [], profileRenders: false, scope: undefined, features: [], overlay: {} } as EffectiveOptions;
+    const options = { adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined, features: [], overlay: {} } as EffectiveOptions;
     handle = createDebugContext( { overlay, adapter: guardAdapter( fake ), options } );
     return handle.ctx;
 }
@@ -85,7 +86,7 @@ describe( 'DirectiveView', () => {
 
     it( 'renders groups with rows; inputs are open by default', () => {
         const { ctx, view, changes, target, unit } = world();
-        const groups = view.rowGroups( target, ctx.rowsOf( unit ), { scope: 'Card', changes } );
+        const groups = view.rowGroups( target, ctx.rowsOf( unit ), { surface: 'inspector', scope: 'Card', changes } );
         expect( groups ).toHaveLength( 2 );
         const [inputs, properties] = groups as HTMLDetailsElement[];
         expect( [inputs.open, properties.open] ).toEqual( [true, false] );
@@ -103,7 +104,7 @@ describe( 'DirectiveView', () => {
         sig.set( 5 );
         changes.diff( changes.snapshot( refs() ), () => false );
         expect( changes.unseenCount() ).toBe( 1 );
-        const [inputs] = view.rowGroups( target, ctx.rowsOf( unit ), { scope: 'Card', changes } ) as HTMLDetailsElement[];
+        const [inputs] = view.rowGroups( target, ctx.rowsOf( unit ), { surface: 'inspector', scope: 'Card', changes } ) as HTMLDetailsElement[];
         expect( inputs.textContent ).toContain( '1 changed' );
         expect( inputs.querySelector( '.kd-changed' ) ).toBeTruthy();
         inputs.dispatchEvent( new Event( 'toggle' ) );
@@ -112,15 +113,16 @@ describe( 'DirectiveView', () => {
 
     it( 'offers tracking only when a Tracking service exists', () => {
         const { ctx, view, target, unit, changes } = world();
-        expect( view.watchIcon( target ) ).toBeNull();
+        const trailing = () => view.unitActions( target, 'inspector', 'trailing' );
+        expect( trailing().filter( b => b.classList.contains( 'kd-watch' ) ) ).toHaveLength( 0 );
         const toggled: string[] = [];
         ctx.provide( Tracking, {
             isWatched: () => false,
             toggleDirectiveWatch: () => void toggled.push( 'unit' ),
             toggleValueWatch: ( _t, category, name ) => void toggled.push( `${category}.${name}` )
         } );
-        view.watchIcon( target )!.click();
-        const [inputs] = view.rowGroups( target, ctx.rowsOf( unit ), { scope: 'Card', changes } ) as HTMLDetailsElement[];
+        trailing().find( b => b.classList.contains( 'kd-watch' ) )!.click();
+        const [inputs] = view.rowGroups( target, ctx.rowsOf( unit ), { surface: 'inspector', scope: 'Card', changes } ) as HTMLDetailsElement[];
         inputs.querySelector<HTMLButtonElement>( '.kd-watch' )!.click();
         expect( toggled ).toEqual( ['unit', 'inputs.title'] );
     } );
@@ -142,9 +144,10 @@ describe( 'DirectiveView', () => {
 
     it( 'hides the graph icon without reactivity or a graph panel, and shows the profile badge from the service', () => {
         const { ctx, view, target, unit } = world();
-        expect( view.graphIcon( target ) ).toBeNull();
+        const graph = () => view.unitActions( target, 'inspector', 'trailing' ).find( b => b.classList.contains( 'kd-action-graph' ) );
+        expect( graph() ).toBeUndefined();
         overlay.register( { id: 'graph', title: 'Graph', mount: () => undefined } );
-        expect( view.graphIcon( target ) ).not.toBeNull();
+        expect( graph() ).toBeDefined();
         expect( view.profileBadge( unit ) ).toBeNull();
         ctx.provide( Profiler, { countsOf: () => ( { renders: 3, checks: 9, rendering: true } ) } );
         const badge = view.profileBadge( unit )!;

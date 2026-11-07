@@ -99,11 +99,13 @@ function setup( ctx: DebugContext ): FeatureInstance {
     const renderEntry = ( result: Result, autoOpen: boolean ): HTMLElement => {
         const { entry } = result;
         const target = { unit: entry.unit, element: entry.element };
-        const head: ( Node | string )[] = [view.nameLink( target ), span( 'kp-muted', ` <${describeElement( entry.element )}>` )];
-        for ( const extra of [view.watchIcon( target ), view.graphIcon( target ), view.profileBadge( entry.unit )] ) {
-            if ( extra ) {
-                head.push( extra );
-            }
+        const head: ( Node | string )[] = [
+            ...view.unitActions( target, 'search', 'leading' ), view.nameLink( target ), span( 'kp-muted', ` <${describeElement( entry.element )}>` ),
+            ...view.unitActions( target, 'search', 'trailing' )
+        ];
+        const profile = view.profileBadge( entry.unit );
+        if ( profile ) {
+            head.push( profile );
         }
         const key = `e:${entry.id}`;
         const details = renderDetails( {
@@ -113,7 +115,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             headRow: true,
             head,
             body: () => view.rowGroups( target, result.rows ?? ctx.rowsOf( entry.unit ), {
-                scope: `search:${entry.id}`, changes, rowIcon: 'track', open: () => !!result.rows
+                surface: 'search', scope: `search:${entry.id}`, changes, open: () => !!result.rows
             } ),
             onToggle: remember( key, autoOpen )
         } );

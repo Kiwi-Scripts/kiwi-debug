@@ -1,6 +1,7 @@
 import type { HotkeyBinding, ModifierKey, Overlay, OverlayOptions, PanelDefinition } from '@kiwi-js/panels';
 
 import type { FeatureId, GuardedAdapter, FrameworkAdapter, Unit } from '../adapter/types';
+import type { ActionLists, ActionRegistry } from './actions';
 import type { Inspection, TrackedRow } from './units';
 import type { ServiceKey } from './services';
 
@@ -22,6 +23,11 @@ export interface DebugOptions {
     /** Default: all built-in features. Custom features can be added. */
     features?: Array<FeatureId | DebugFeature>;
     overlay?: Pick<OverlayOptions, 'tray' | 'theme' | 'storage' | 'container'>;
+    /**
+     * The buttons of unit heads and value rows, in order: a built-in action by name, or a definition of your own. A list given here
+     * replaces the default list of that kind. Built-ins: rows `track`, `graph`, `inspect`; units `track`, `graph`, `address`, `keep`, `side`, `remove`.
+     */
+    actions?: Partial<ActionLists>;
 }
 
 /** The options after merging the layers and applying defaults. */
@@ -33,6 +39,7 @@ export interface EffectiveOptions {
     scope: unknown;
     features: Array<FeatureId | DebugFeature>;
     overlay: NonNullable<DebugOptions['overlay']>;
+    actions: ActionLists;
 }
 
 export interface FeatureInstance {
@@ -75,6 +82,8 @@ export interface DebugContext {
     inspectedElement(): Element | null;
     /** The shared dashed box over the element hovered; `null` hides it. */
     highlightHover( el: Element | null ): void;
+    /** The actions available for unit heads and value rows (see `DebugOptions.actions`). Features register their own. */
+    readonly actions: ActionRegistry;
     /** A small toggle button for tracking. */
     watchButton( title: string, isOn: () => boolean, toggle: () => void ): HTMLElement;
     /** Runs code where it cannot trigger the framework's change detection. */
