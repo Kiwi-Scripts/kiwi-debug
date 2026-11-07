@@ -108,7 +108,7 @@ describe( 'watch model', () => {
         first.tracking.toggleValueWatch( { unit: card, element: el( 'card' ) }, 'inputs', 'title' );
         first.tracking.toggleDirectiveWatch( { unit: side, element: el( 'side' ) } );
         const stored = JSON.parse( storage.get( 'tracked:/p' )! );
-        expect( Object.values( stored ) ).toEqual( [['inputs\0title'], null] );
+        expect( Object.values( stored ) ).toEqual( [['title'], null] );
         stop!();
 
         const second = make( storage ).model;

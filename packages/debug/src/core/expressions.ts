@@ -177,6 +177,11 @@ export function formatExpression( expression: Expression ): string {
         : formatSegments( expression.segments );
 }
 
+/** What a tracked path reads when it cannot be followed: shown as `⊘ message`, so that it is a value like any other. */
+export class Unreachable {
+    constructor( readonly message: string ) {}
+}
+
 export type Failure = 'nullish' | 'throws';
 
 export type Evaluation =

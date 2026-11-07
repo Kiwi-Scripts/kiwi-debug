@@ -1,14 +1,19 @@
 import { keepState } from '@kiwi-js/dom';
 import {
     badge, button, div, memoryStorage, placeBox, renderDetails, renderSection, sessionStorageAdapter, span,
-    type PanelContext, type PanelDefinition, type PanelHandle, type StorageAdapter
+    type HotkeyBinding, type PanelContext, type PanelDefinition, type PanelHandle, type StorageAdapter
 } from '@kiwi-js/panels';
 
-import { createChangeTracker, groupKey } from '../../core/change-tracker';
+import { createChangeTracker, groupKey, rowKey } from '../../core/change-tracker';
 import { createDirectiveView } from '../../core/directive-view';
 import { Tracking, type TrackTarget } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
+import { createInspectPanel } from './inspect-panel';
 import { createWatchModel, type WatchEntry } from './model';
+import { EXPRESSIONS } from './paths';
+import type { Pin } from './pins';
+
+const CATEGORIES = ['inputs', 'outputs', 'properties', 'form', EXPRESSIONS];
 
 const ICON = 'M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10z';
 
@@ -73,6 +78,9 @@ function setup( ctx: DebugContext ): FeatureInstance {
         if ( !visible() || !root ) {
             return false;
         }
+        if ( key.startsWith( '$' ) ) {
+            return true;
+        }
         const entry = model.entries.find( e => key.startsWith( `${e.id}:` ) );
         return !!entry?.expanded;
     };
@@ -97,7 +105,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         if ( entry.kind !== 'component' ) {
             head.push( badge( entry.kind ) );
         }
-        const unseen = Array.from( ['inputs', 'outputs', 'properties', 'form'] ).reduce( ( sum, c ) => sum + changes.unseenIn( groupKey( entry.id, c ) ), 0 );
+        const unseen = CATEGORIES.reduce( ( sum, c ) => sum + changes.unseenIn( groupKey( entry.id, c ) ), 0 );
         if ( unseen ) {
             head.push( badge( `${unseen} changed` ) );
         }
@@ -115,7 +123,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             onToggle: expanded => {
                 entry.expanded = expanded;
                 if ( expanded ) {
-                    ['inputs', 'outputs', 'properties', 'form'].forEach( c => changes.acknowledge( groupKey( entry.id, c ) ) );
+                    CATEGORIES.forEach( c => changes.acknowledge( groupKey( entry.id, c ) ) );
                 }
             }
         } );
@@ -123,6 +131,38 @@ function setup( ctx: DebugContext ): FeatureInstance {
         details.onmouseenter = () => ctx.highlightHover( entry.element );
         details.onmouseleave = () => ctx.highlightHover( null );
         return details;
+    };
+
+    /** The paths of a pin that are tracked, after the pin itself. */
+    const pinRows = ( pin: Pin ): string[] => [pin.id, ...pin.paths];
+
+    const renderPin = ( pin: Pin, snapshot: ReturnType<typeof changes.snapshot> ): HTMLElement => {
+        const gone = !model.pins.resolve( pin.id );
+        const head: ( Node | string )[] = [span( 'kd-index', pin.id ), span( 'kp-muted', pin.origin )];
+        if ( gone ) {
+            head.push( badge( 'gone' ) );
+        }
+        head.push( button( '✕', 'Remove this reference', () => model.pins.remove( pin.id ), { mini: true } ) );
+        return renderDetails( {
+            className: 'kp-dir kd-pin',
+            key: `pin:${pin.id}`,
+            open: true,
+            headRow: true,
+            head,
+            body: () => pinRows( pin ).map( text => {
+                const key = rowKey( pin.id, EXPRESSIONS, text );
+                const row = div( 'kp-row kd-row' );
+                if ( text !== pin.id ) {
+                    row.append( button( '◉', 'Stop tracking this path', () => model.toggleExpression( undefined, text ), { mini: true, on: true } ) );
+                }
+                const value = span( 'kd-value', snapshot.get( key )?.text ?? '' );
+                row.append( span( `kd-name kd-${EXPRESSIONS}`, text ), ' = ', value,
+                    button( '⌕', 'Inspect this path', () => overlay.panels.open( 'inspect', { expression: text } ), { mini: true } ) );
+                changes.markRow( row, key );
+                row.onmouseenter = () => changes.dismiss( key );
+                return row;
+            } )
+        } );
     };
 
     const renderSide = (): HTMLElement | undefined => {
@@ -145,10 +185,13 @@ function setup( ctx: DebugContext ): FeatureInstance {
         }
         keepState( pc.body, () => {
             root!.replaceChildren();
-            if ( !model.entries.length ) {
+            if ( !model.entries.length && !model.pins.list().length ) {
                 root!.append( div( 'kp-muted kd-hint', `Track values from the inspector or the search: click ◉, or ${ctx.options.key} + click a name.` ) );
             }
             model.entries.forEach( entry => root!.append( renderEntry( entry, snapshot ) ) );
+            if ( model.pins.list().length ) {
+                root!.append( renderSection( 'References', ...model.pins.list().map( pin => renderPin( pin, snapshot ) ) ) );
+            }
             const sideView = renderSide();
             if ( sideView ) {
                 root!.append( sideView );
@@ -158,8 +201,9 @@ function setup( ctx: DebugContext ): FeatureInstance {
 
     const updateHeader = (): void => {
         const unseen = changes.unseenCount();
-        pc?.setTitle( `Tracked values (${model.entries.length})${unseen ? ` · ${unseen} changed` : ''}` );
-        pc?.setBadge( model.entries.length || null );
+        const count = model.entries.length + model.pins.list().length;
+        pc?.setTitle( `Tracked values (${count})${unseen ? ` · ${unseen} changed` : ''}` );
+        pc?.setBadge( count || null );
     };
 
     // ---------------------------------------------------------------- refresh
@@ -172,8 +216,12 @@ function setup( ctx: DebugContext ): FeatureInstance {
             signature = '';
         }
         const refs = model.entries.flatMap( entry => model.rowsOf( entry ).map( r => ( { scope: entry.id, category: r.category, name: r.name, read: r.read } ) ) );
-        const snapshot = changes.snapshot( refs );
-        const structure = model.entries.map( e => `${e.id}${e.all ? '*' : ''}${model.colorOf( e.element )}${model.isOutlined( e.element )}` ).join( ',' );
+        const pinRefs = model.pins.list().flatMap( pin => pinRows( pin ).map( text => ( { scope: pin.id, category: EXPRESSIONS, name: text, read: () => model.reader.read( undefined, text ) } ) ) );
+        const snapshot = changes.snapshot( [...refs, ...pinRefs] );
+        const structure = [
+            ...model.entries.map( e => `${e.id}${e.all ? '*' : ''}${model.colorOf( e.element )}${model.isOutlined( e.element )}` ),
+            ...model.pins.list().map( p => `${p.id}${pinRows( p ).join( '+' )}${model.pins.resolve( p.id ) ? '' : 'gone'}` )
+        ].join( ',' );
         const next = `${structure}\u0003${side ? 'side' : ''}\u0003${changes.signatureOf( snapshot )}`;
         if ( next === signature ) {
             return;
@@ -189,7 +237,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
     /** The panel is shown when something gets tracked; closing it does not stop the tracking. */
     const reveal = (): void => {
         const handle = panel();
-        if ( handle && model.entries.length && handle.state === 'closed' ) {
+        if ( handle && ( model.entries.length || model.pins.list().length ) && handle.state === 'closed' ) {
             handle.open();
         }
     };
@@ -217,7 +265,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
                     refresh();
                 },
                 // Entries stay tracked while the panel is minimized or closed; the panel keeps refreshing as long as there are any.
-                isActive: () => model.entries.length > 0,
+                isActive: () => model.entries.length > 0 || model.pins.list().length > 0,
                 refresh,
                 dispose() {
                     pc = undefined;
@@ -253,11 +301,34 @@ function setup( ctx: DebugContext ): FeatureInstance {
             }
         } )
     ];
+    offActions.push( ctx.actions.register( 'row', {
+        id: 'inspect', icon: '⌕', title: 'Inspect this value further',
+        run: c => c.row && overlay.panels.open( 'inspect', { unit: c.target.unit, element: c.target.element, expression: c.row.category === 'form' ? '' : c.row.name } ),
+        visible: c => !!c.row && c.row.category !== 'form' && !!overlay.panels.get( 'inspect' )
+    } ) );
+    const hotkeys: HotkeyBinding[] = [{
+        combo: 'Escape', modifier: false, allowWhileEditing: true,
+        handler: () => {
+            const mini = overlay.panels.get( 'inspect' );
+            if ( mini?.state === 'open' ) {
+                mini.close();
+                return true;
+            }
+            return false;
+        }
+    }];
+    const inspectPanel = createInspectPanel( ctx, model, () => {
+        reveal();
+        signature = '';
+        refresh();
+    } );
     const offService = ctx.provide( Tracking, model.tracking );
     const reposition = (): void => syncOutlines();
 
     return {
         panel: definition,
+        panels: [inspectPanel],
+        hotkeys,
         listeners: [[window, 'scroll', reposition, true], [window, 'resize', reposition, false]],
         dispose() {
             offChange();

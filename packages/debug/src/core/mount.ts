@@ -95,7 +95,7 @@ export function mountOverlay( options: EffectiveOptions, hooks: MountHooks = {} 
         return index < 0 ? TRAY_ORDER.length : index;
     };
     instances
-        .flatMap( ( { instance } ) => instance.panel ? [instance.panel] : [] )
+        .flatMap( ( { instance } ) => [...instance.panel ? [instance.panel] : [], ...instance.panels ?? []] )
         .sort( ( a, b ) => trayRank( a ) - trayRank( b ) )
         .forEach( panel => overlay.register( panel ) );
     runOutside( () => listeners.forEach( ( [target, type, fn, capture] ) => target.addEventListener( type, fn, capture ) ) );

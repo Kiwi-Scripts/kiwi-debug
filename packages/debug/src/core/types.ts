@@ -48,6 +48,8 @@ export interface EffectiveOptions {
 export interface FeatureInstance {
     /** Registered with the tray in feature order. */
     panel?: PanelDefinition;
+    /** Further panels of the feature, e.g. small ones without a tray button (`PanelDefinition.tray`). */
+    panels?: PanelDefinition[];
     /** Bound in registration order; earlier ones consume first. */
     hotkeys?: HotkeyBinding[];
     /** Attached outside the framework zone. */

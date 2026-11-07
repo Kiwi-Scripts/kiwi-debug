@@ -4,6 +4,8 @@ import type { Unit } from '../../adapter/types';
 import type { Tracking, TrackTarget } from '../../core/services';
 import type { DebugContext } from '../../core/types';
 import type { TrackedRow } from '../../core/units';
+import { createPathReader, EXPRESSIONS, type PathReader } from './paths';
+import { createPins, type Pins } from './pins';
 
 export const DEFAULT_TRACKED_COLORS = ['#ff9800', '#4fc3f7', '#7cc05b', '#d66ad6', '#e5c07b', '#f44747', '#9cdcfe', '#c586c0'];
 
@@ -11,7 +13,11 @@ export const DEFAULT_TRACKED_COLORS = ['#ff9800', '#4fc3f7', '#7cc05b', '#d66ad6
 export const RESTORE_FOR_MS = 30_000;
 export const RESTORE_EVERY_MS = 500;
 
-const valueKey = ( category: string, name: string ): string => `${category}\0${name}`;
+/**
+ * What a tracked value is called in a selection: a member by its name (member names are unique), an expression by its text, and a
+ * form row by `#form:name`, which cannot be mistaken for either.
+ */
+export const selectionKey = ( category: string, name: string ): string => category === 'form' ? `#form:${name}` : name;
 
 export interface WatchEntry {
     id: string;
@@ -19,20 +25,25 @@ export interface WatchEntry {
     element: Element;
     kind: string;
     name: string;
-    /** Tracks every value of the unit, including properties that appear later. */
+    /** Tracks every member of the unit, including properties that appear later. Expressions are tracked in `selected` either way. */
     all: boolean;
-    /** `category\0name` of the tracked values when `all` is false. */
+    /** The tracked values (see {@link selectionKey}); with `all`, only the expressions among them count. */
     selected: Set<string>;
     expanded: boolean;
     address?: string;
 }
 
-/** What is stored per address: the tracked value keys, or `null` for everything. */
+/** The marker in a stored list that says the entry tracks all members besides the listed values. */
+const ALL = '*';
+
+/** What is stored per address: the tracked values, `null` for all members, or both (`*` and the expressions). */
 type Stored = Record<string, string[] | null>;
 
 export interface WatchModel {
     readonly entries: readonly WatchEntry[];
     readonly tracking: Tracking;
+    readonly pins: Pins;
+    readonly reader: PathReader;
     /** Entries on the same element are contiguous and share color and index. */
     colorOf( el: Element ): string;
     indexOf( el: Element ): number;
@@ -40,8 +51,12 @@ export interface WatchModel {
     isOutlined( el: Element ): boolean;
     toggleOutline( el: Element ): void;
     remove( id: string ): void;
-    /** The rows an entry tracks (all of them, or the selected ones). */
+    /** The rows an entry tracks: its members (all, or the selected ones) and its expressions. */
     rowsOf( entry: WatchEntry ): TrackedRow[];
+    /** Whether the expression (relative to the unit, or starting at a pin) is tracked. */
+    isExpressionTracked( unit: Unit | undefined, text: string ): boolean;
+    /** Tracks the expression, or stops tracking it. Returns whether it is tracked now; `undefined` if it cannot be tracked. */
+    toggleExpression( target: TrackTarget | undefined, text: string ): boolean | undefined;
     onChange( cb: () => void ): () => void;
     /** Starts resolving the stored addresses; the first attempt comes after one interval, never synchronously. */
     startRestore(): void;
@@ -59,6 +74,8 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     const { adapter } = ctx;
     const palette = options.palette?.length ? options.palette : DEFAULT_TRACKED_COLORS;
     const storeKey = `tracked:${options.path}`;
+    const pins = createPins();
+    const reader = createPathReader( ctx, pins );
     const entries: WatchEntry[] = [];
     const elements = new Map<Element, { color: string; outlined: boolean }>();
     const listeners = new Set<() => void>();
@@ -68,16 +85,18 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     let timer: ReturnType<typeof setInterval> | undefined;
     let restoreUntil = 0;
 
+    const notify = (): void => listeners.forEach( cb => cb() );
     const changed = (): void => {
         save();
-        listeners.forEach( cb => cb() );
+        notify();
     };
+    pins.onChange( notify );
 
     function save(): void {
         const stored: Stored = { ...pending };
         for ( const entry of entries ) {
             if ( entry.address !== undefined ) {
-                stored[entry.address] = entry.all ? null : Array.from( entry.selected );
+                stored[entry.address] = entry.all ? ( entry.selected.size ? [ALL, ...entry.selected] : null ) : Array.from( entry.selected );
             }
         }
         if ( Object.keys( stored ).length ) {
@@ -125,8 +144,18 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     };
 
     const rowsOf = ( entry: WatchEntry ): TrackedRow[] => {
-        const rows = ctx.rowsOf( entry.unit );
-        return entry.all ? rows : rows.filter( r => entry.selected.has( valueKey( r.category, r.name ) ) );
+        const members = ctx.rowsOf( entry.unit );
+        const known = new Set( members.map( r => selectionKey( r.category, r.name ) ) );
+        const rows = entry.all ? members : members.filter( r => entry.selected.has( selectionKey( r.category, r.name ) ) );
+        const expressions = Array.from( entry.selected ).filter( key => !known.has( key ) && !key.startsWith( '#' ) ).map( key => reader.rowFor( entry.unit, key ) );
+        return [...rows, ...expressions];
+    };
+
+    /** Drops an entry that tracks nothing any more. */
+    const dropIfEmpty = ( entry: WatchEntry ): void => {
+        if ( !entry.all && !entry.selected.size ) {
+            removeEntry( entry );
+        }
     };
 
     const tracking: Tracking = {
@@ -135,7 +164,10 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             if ( !entry ) {
                 return false;
             }
-            return category === undefined || name === undefined || entry.all || entry.selected.has( valueKey( category, name ) );
+            if ( category === undefined || name === undefined ) {
+                return true;
+            }
+            return ( entry.all && category !== EXPRESSIONS ) || entry.selected.has( selectionKey( category, name ) );
         },
         toggleDirectiveWatch( target ) {
             const entry = find( target.unit );
@@ -147,7 +179,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             changed();
         },
         toggleValueWatch( target, category, name ) {
-            const key = valueKey( category, name );
+            const key = selectionKey( category, name );
             const entry = find( target.unit );
             if ( !entry ) {
                 if ( target.element ) {
@@ -156,17 +188,16 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
                 }
                 return;
             }
-            if ( entry.all ) {
-                // Converts to an explicit set of everything but this value.
+            if ( entry.all && category !== EXPRESSIONS ) {
+                // Converts to an explicit set: every member but this one, and the expressions that were tracked.
+                const members = ctx.rowsOf( entry.unit ).map( r => selectionKey( r.category, r.name ) );
                 entry.all = false;
-                entry.selected = new Set( ctx.rowsOf( entry.unit ).map( r => valueKey( r.category, r.name ) ) );
+                entry.selected = new Set( [...entry.selected, ...members] );
                 entry.selected.delete( key );
             } else if ( !entry.selected.delete( key ) ) {
                 entry.selected.add( key );
             }
-            if ( !entry.all && !entry.selected.size ) {
-                removeEntry( entry );
-            }
+            dropIfEmpty( entry );
             changed();
         }
     };
@@ -180,7 +211,8 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
                 continue;
             }
             const names = pending[address];
-            add( found, names === null ? { all: true, address } : { selected: new Set( names ), address } );
+            const all = names === null || names.includes( ALL );
+            add( found, { all, selected: new Set( names?.filter( n => n !== ALL ) ), address } );
             delete pending[address];
             restored = true;
         }
@@ -205,13 +237,15 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     return {
         entries,
         tracking,
+        pins,
+        reader,
         colorOf: el => elements.get( el )?.color ?? palette[0],
         indexOf: el => Array.from( elements.keys() ).indexOf( el ) + 1,
         setColor( el, color ) {
             const info = elements.get( el );
             if ( info ) {
                 info.color = color;
-                listeners.forEach( cb => cb() );
+                notify();
             }
         },
         isOutlined: el => !!elements.get( el )?.outlined,
@@ -219,7 +253,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             const info = elements.get( el );
             if ( info ) {
                 info.outlined = !info.outlined;
-                listeners.forEach( cb => cb() );
+                notify();
             }
         },
         remove( id ) {
@@ -230,6 +264,47 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             }
         },
         rowsOf,
+        isExpressionTracked( unit, text ) {
+            const canonical = reader.canonical( text );
+            const result = reader.parse( text );
+            if ( canonical === undefined || !result.ok ) {
+                return false;
+            }
+            if ( result.expression.base.kind === 'pin' ) {
+                return !!pins.get( result.expression.base.id )?.paths.has( canonical );
+            }
+            return !!unit && !!find( unit )?.selected.has( canonical );
+        },
+        toggleExpression( target, text ) {
+            const result = reader.parse( text );
+            const canonical = reader.canonical( text );
+            if ( !result.ok || canonical === undefined ) {
+                return undefined;
+            }
+            if ( result.expression.base.kind === 'pin' ) {
+                const pin = pins.get( result.expression.base.id );
+                if ( !pin ) {
+                    return undefined;
+                }
+                const on = !pin.paths.delete( canonical );
+                if ( on && result.expression.segments.length ) {
+                    pin.paths.add( canonical );
+                }
+                notify();
+                return on && result.expression.segments.length > 0;
+            }
+            if ( !target?.element ) {
+                return undefined;
+            }
+            const entry = find( target.unit ) ?? add( { ...target, element: target.element }, {} );
+            const on = !entry.selected.delete( canonical );
+            if ( on ) {
+                entry.selected.add( canonical );
+            }
+            dropIfEmpty( entry );
+            changed();
+            return on;
+        },
         onChange: cb => {
             listeners.add( cb );
             return () => void listeners.delete( cb );

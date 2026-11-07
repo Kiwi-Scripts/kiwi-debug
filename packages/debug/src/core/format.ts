@@ -1,6 +1,7 @@
 import { describeElement } from '@kiwi-js/dom';
 
 import type { ReactivityApi } from '../adapter/types';
+import { Unreachable } from './expressions';
 
 export const PREVIEW_LIMIT = 60;
 export const COPY_MAX_CHARS = 20_000;
@@ -24,6 +25,9 @@ type NodeOf = Pick<ReactivityApi, 'nodeOf'> | undefined;
  */
 export function preview( value: unknown, reactivity?: NodeOf, depth = 0 ): string {
     try {
+        if ( value instanceof Unreachable ) {
+            return `⊘ ${value.message}`;
+        }
         const node = typeof value === 'object' || typeof value === 'function' ? reactivity?.nodeOf( value ) : undefined;
         if ( node ) {
             return node.holdsValue && depth < 2 ? `${node.kind}(${preview( node.peek(), reactivity, depth + 1 )})` : node.kind;
