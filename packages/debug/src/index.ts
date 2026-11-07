@@ -10,6 +10,8 @@ export { Profiler, Tracking, InspectedElement, serviceKey } from './core/service
 export type { ProfilerService, ServiceKey, TrackTarget } from './core/services';
 export { createChangeTracker, groupKey, rowKey } from './core/change-tracker';
 export type { ChangeNote, ChangeTracker, Reading, Snapshot, TrackedRef } from './core/change-tracker';
+export { DEFAULT_ACTIONS } from './core/builtin-actions';
+export type { ActionConfig, ActionContext, ActionDef, ActionLists, ActionRegistry, ActionScope } from './core/actions';
 export { createDirectiveView } from './core/directive-view';
 export type { DirectiveView, RowGroupsOptions } from './core/directive-view';
 export { copyValue, preview, stringifyCopy } from './core/format';
