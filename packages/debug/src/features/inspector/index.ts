@@ -35,7 +35,7 @@ function depthOf( ctx: DebugContext, el: Element ): number {
 function setup( ctx: DebugContext ): FeatureInstance {
     const { overlay, adapter } = ctx;
     const view = createDirectiveView( ctx );
-    const changes = createChangeTracker( adapter.reactivity );
+    const changes = createChangeTracker( adapter.reactivity, { detail: ctx.options.valueDetail === 'detail' } );
     const panel = (): PanelHandle | undefined => overlay.panels.get( 'inspector' );
 
     let target: Element | null = null;

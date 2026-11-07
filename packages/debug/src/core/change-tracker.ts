@@ -13,6 +13,8 @@ export interface Reading {
     version?: number;
     /** A bounded copy, only for object values. */
     copy?: Copy;
+    /** A fingerprint of the copy, only when values are shown in detail: changes inside an object show up in it. */
+    deep?: string;
 }
 
 /** A value to follow. `scope` is the unit name (inspector) or the entry id (watch). */
@@ -25,7 +27,7 @@ export interface TrackedRef {
 }
 
 export interface ChangeNote {
-    kind: 'text' | 'rewritten';
+    kind: 'text' | 'rewritten' | 'nested';
     /** What the row shows after `was`: the old text, or `value written: v1 → v2`. */
     was: string;
     /** The previous copy of an object value, logged when the row is clicked. */
@@ -74,7 +76,22 @@ export interface ChangeTracker {
     forget( scope: string ): void;
 }
 
-export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'> ): ChangeTracker {
+export interface ChangeTrackerOptions {
+    /** Also notice changes inside objects and arrays, not only in their one-line text. */
+    detail?: boolean;
+}
+
+/** A short fingerprint of a bounded copy; equal copies give equal fingerprints. */
+function fingerprint( copy: Copy ): string {
+    const text = JSON.stringify( copy ) ?? '';
+    let hash = 5381;
+    for ( let i = 0; i < text.length; i++ ) {
+        hash = ( hash * 33 ^ text.charCodeAt( i ) ) | 0;
+    }
+    return `${text.length}:${hash}`;
+}
+
+export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'>, options: ChangeTrackerOptions = {} ): ChangeTracker {
     let baseline: Snapshot = new Map();
     const changes = new Map<string, ChangeNote>();
     const flashing = new Set<string>();
@@ -97,6 +114,9 @@ export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'> 
                 if ( node ) {
                     copies.set( node, { version: node.version, copy: out.copy } );
                 }
+            }
+            if ( options.detail ) {
+                out.deep = fingerprint( out.copy );
             }
         }
         return out;
@@ -126,7 +146,7 @@ export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'> 
             }
             return snapshot;
         },
-        signatureOf: snapshot => Array.from( snapshot, ( [key, r] ) => `${key}\u0001${r.text}\u0001${r.version ?? ''}` ).join( '\u0002' ),
+        signatureOf: snapshot => Array.from( snapshot, ( [key, r] ) => `${key}\u0001${r.text}\u0001${r.version ?? ''}${r.deep ?? ''}` ).join( '\u0002' ),
         diff( snapshot, isSeen ) {
             for ( const [key, now] of snapshot ) {
                 const before = baseline.get( key );
@@ -135,12 +155,13 @@ export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'> 
                 }
                 const textChanged = before.text !== now.text;
                 const rewritten = !textChanged && before.version !== undefined && now.version !== undefined && before.version !== now.version;
-                if ( !textChanged && !rewritten ) {
+                const nested = !textChanged && !rewritten && before.deep !== undefined && before.deep !== now.deep;
+                if ( !textChanged && !rewritten && !nested ) {
                     continue;
                 }
                 changes.set( key, {
-                    kind: textChanged ? 'text' : 'rewritten',
-                    was: textChanged ? before.text : `value written: v${before.version} → v${now.version}`,
+                    kind: textChanged ? 'text' : rewritten ? 'rewritten' : 'nested',
+                    was: textChanged ? before.text : rewritten ? `value written: v${before.version} → v${now.version}` : 'a nested value changed',
                     previous: before.copy
                 } );
                 flashing.add( key );

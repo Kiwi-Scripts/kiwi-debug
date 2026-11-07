@@ -15,6 +15,12 @@ export type { ActionConfig, ActionContext, ActionDef, ActionLists, ActionRegistr
 export { createDirectiveView } from './core/directive-view';
 export type { DirectiveView, RowGroupsOptions } from './core/directive-view';
 export { copyValue, preview, stringifyCopy } from './core/format';
+export { describeValue } from './core/values';
+export type { ValueNode } from './core/values';
+export { createValueViewState, renderValueTree } from './core/value-view';
+export type { ValueViewOptions, ValueViewState } from './core/value-view';
+export { evaluatePath, formatExpression, parseExpression } from './core/expressions';
+export type { Evaluation, Expression, Segment } from './core/expressions';
 export { logGroup, LOG_PREFIX } from './core/console';
 export { safe, safeOr } from './core/safe';
 export { DEFAULT_TRACKED_COLORS } from './features/watch/model';

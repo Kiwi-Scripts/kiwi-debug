@@ -6,6 +6,8 @@ import type { ChangeTracker, Snapshot } from './change-tracker';
 import { groupKey, rowKey } from './change-tracker';
 import { logGroup } from './console';
 import { copyValue, preview } from './format';
+import { createValueViewState, renderValueTree, type ValueViewState } from './value-view';
+import { describeValue } from './values';
 import { Profiler, Tracking, type TrackTarget } from './services';
 import { safe } from './safe';
 import type { DebugContext } from './types';
@@ -46,6 +48,9 @@ const CATEGORY_ORDER = ['inputs', 'outputs', 'properties'];
 export function createDirectiveView( ctx: DebugContext ): DirectiveView {
     const { adapter } = ctx;
     const tracking = (): Tracking | undefined => ctx.use( Tracking );
+    const detailed = ctx.options.valueDetail === 'detail';
+    /** What the opened trees remember across redraws, per row. */
+    const treeStates = new Map<string, ValueViewState>();
 
     const logUnit = ( target: TrackTarget ): void => {
         const description = adapter.units.describe( target.unit );
@@ -108,8 +113,18 @@ export function createDirectiveView( ctx: DebugContext ): DirectiveView {
                     const el = div( 'kp-row kd-row' );
                     const actions = ctx.actions.resolve( 'row', surface );
                     const c: ActionContext = { ctx, surface, target, row };
-                    const value = span( 'kd-value', text, 'Click to log the value' );
+                    let value: HTMLElement = span( 'kd-value', text, 'Click to log the value' );
                     value.onclick = () => logGroup( `${row.label ?? row.name}`, [['value', safe( () => row.read() )], ['copy', safe( () => copyValue( row.read() ) )]] );
+                    if ( detailed ) {
+                        const node = describeValue( safe( () => row.read() ), adapter.reactivity );
+                        if ( node.expandable ) {
+                            let state = treeStates.get( key );
+                            if ( !state ) {
+                                treeStates.set( key, state = createValueViewState() );
+                            }
+                            value = renderValueTree( node, { state, highlight: ctx.highlightHover } );
+                        }
+                    }
                     el.append(
                         ...renderActions( actions, 'leading', c ),
                         span( `kd-name kd-${row.category}`, row.label && row.label !== row.name ? `${row.label} (${row.name})` : row.name ),

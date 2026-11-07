@@ -51,7 +51,7 @@ describe( 'search feature', () => {
     let dispose: ( () => void ) | undefined;
 
     const options = (): EffectiveOptions => ( {
-        adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined,
+        adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, valueDetail: 'summary', profileRenders: false, scope: undefined,
         features: ['search', 'watch'], overlay: { storage: false as never }
     } );
     const shadow = (): ShadowRoot => document.querySelector( 'kiwi-panels' )!.shadowRoot!;

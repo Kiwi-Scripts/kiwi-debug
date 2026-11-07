@@ -21,7 +21,7 @@ function storageFor( ctx: DebugContext ): StorageAdapter {
 function setup( ctx: DebugContext ): FeatureInstance {
     const { overlay, adapter } = ctx;
     const view = createDirectiveView( ctx );
-    const changes = createChangeTracker( adapter.reactivity );
+    const changes = createChangeTracker( adapter.reactivity, { detail: ctx.options.valueDetail === 'detail' } );
     const model = createWatchModel( ctx, {
         storage: storageFor( ctx ),
         path: typeof location === 'undefined' ? '/' : location.pathname,

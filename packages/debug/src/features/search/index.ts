@@ -25,7 +25,7 @@ interface Result {
 function setup( ctx: DebugContext ): FeatureInstance {
     const { overlay, adapter } = ctx;
     const view = createDirectiveView( ctx );
-    const changes = createChangeTracker( adapter.reactivity );
+    const changes = createChangeTracker( adapter.reactivity, { detail: ctx.options.valueDetail === 'detail' } );
     const panel = (): PanelHandle | undefined => overlay.panels.get( 'search' );
 
     const ids = new WeakMap<Unit, string>();

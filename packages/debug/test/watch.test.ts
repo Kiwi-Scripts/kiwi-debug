@@ -12,7 +12,7 @@ let fake: FakeAdapter;
 let dispose: ( () => void ) | undefined;
 
 const options = ( over: Partial<EffectiveOptions> = {} ): EffectiveOptions => ( {
-    adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined,
+    adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, valueDetail: 'summary', profileRenders: false, scope: undefined,
     features: ['inspector', 'watch'], overlay: { storage: false as never }, ...over
 } );
 

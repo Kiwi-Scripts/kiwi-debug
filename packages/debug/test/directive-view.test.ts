@@ -16,7 +16,7 @@ let fake: FakeAdapter;
 function setup( capabilities?: Parameters<typeof fakeAdapter>[0] ) {
     fake = fakeAdapter( capabilities );
     overlay = createOverlay( { storage: false, hotkeys: { modifier: 'Alt' } } );
-    const options = { adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, profileRenders: false, scope: undefined, features: [], overlay: {} } as EffectiveOptions;
+    const options = { adapter: fake, key: 'Alt', trackedColors: [], actions: DEFAULT_ACTIONS, valueDetail: 'summary', profileRenders: false, scope: undefined, features: [], overlay: {} } as EffectiveOptions;
     handle = createDebugContext( { overlay, adapter: guardAdapter( fake ), options } );
     return handle.ctx;
 }

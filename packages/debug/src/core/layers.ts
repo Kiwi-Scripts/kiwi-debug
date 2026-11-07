@@ -72,6 +72,7 @@ function effectiveOptions(): ( EffectiveOptions & { disabled: boolean } ) | unde
         features: merged.features ?? [...ALL_FEATURE_IDS],
         overlay,
         actions: { row: actions.row ?? DEFAULT_ACTIONS.row, unit: actions.unit ?? DEFAULT_ACTIONS.unit },
+        valueDetail: merged.valueDetail ?? 'summary',
         disabled: !!merged.disabled
     };
 }
@@ -80,7 +81,7 @@ const featureIds = ( options: EffectiveOptions ): string[] => options.features.m
 
 /** What the live overlay was built from: a change of any of these rebuilds it. */
 const signatureOf = ( options: EffectiveOptions, off: boolean ): string =>
-    JSON.stringify( [options.key, options.trackedColors, options.profileRenders, off, featureIds( options ), actionIds( options.actions.row ), actionIds( options.actions.unit )] );
+    JSON.stringify( [options.key, options.trackedColors, options.profileRenders, off, featureIds( options ), actionIds( options.actions.row ), actionIds( options.actions.unit ), options.valueDetail] );
 
 function mountDormant( options: EffectiveOptions ): () => void {
     const launcher = createDormantLauncher( {

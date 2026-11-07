@@ -28,6 +28,8 @@ export interface DebugOptions {
      * replaces the default list of that kind. Built-ins: rows `track`, `graph`, `inspect`; units `track`, `graph`, `address`, `keep`, `side`, `remove`.
      */
     actions?: Partial<ActionLists>;
+    /** Whether arrays and objects in value rows can be opened in place. Default: 'summary', one line per value. */
+    valueDetail?: 'summary' | 'detail';
 }
 
 /** The options after merging the layers and applying defaults. */
@@ -40,6 +42,7 @@ export interface EffectiveOptions {
     features: Array<FeatureId | DebugFeature>;
     overlay: NonNullable<DebugOptions['overlay']>;
     actions: ActionLists;
+    valueDetail: 'summary' | 'detail';
 }
 
 export interface FeatureInstance {

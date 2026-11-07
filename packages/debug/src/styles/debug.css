@@ -38,3 +38,12 @@
 /* Search */
 .kd-search-input { width: 100%; box-sizing: border-box; margin-bottom: 6px; }
 .kd-result { padding-left: 4px; }
+
+/* Value trees */
+.kd-tree { display: inline-block; vertical-align: top; }
+.kd-node-row { gap: 2px; flex-wrap: nowrap; }
+.kd-node-row + .kd-node-body, .kd-node-body { padding-left: 12px; }
+.kd-toggle { cursor: pointer; }
+.kd-chev { display: inline-block; width: 10px; color: var(--kp-muted); }
+.kd-more { cursor: pointer; }
+.kd-circular, .kd-getter { color: var(--kp-muted); }
