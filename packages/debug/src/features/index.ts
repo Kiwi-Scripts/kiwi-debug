@@ -18,6 +18,6 @@ export const BUILTIN_FEATURES: Partial<Record<FeatureId, DebugFeature>> = {
 export const SETUP_ORDER: readonly FeatureId[] = ['watch', 'search', 'inspector', 'graph', 'forms', 'profiler'];
 
 /** The order of the tray buttons (panel ids). */
-export const TRAY_ORDER: readonly string[] = ['inspector', 'search', 'graph', 'forms', 'profiler', 'watch'];
+export const TRAY_ORDER: readonly string[] = ['inspector', 'search', 'graph', 'forms', 'profiler', 'watch', 'expressions'];
 
 export const ALL_FEATURE_IDS: readonly FeatureId[] = ['inspector', 'watch', 'search', 'graph', 'forms', 'profiler'];

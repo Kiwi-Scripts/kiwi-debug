@@ -20,7 +20,7 @@ const flashUnit: ActionDef = {
 function actionsFor( preset: Settings['actions'] ): DebugOptions['actions'] {
     switch ( preset ) {
         case 'minimal': return { row: ['track'], unit: ['track'] };
-        case 'custom': return { row: ['track', 'graph', 'inspect', tableRow], unit: ['track', 'graph', 'address', flashUnit, 'keep', 'side', 'remove'] };
+        case 'custom': return { row: ['track', 'graph', 'expressions', tableRow], unit: ['track', 'graph', 'address', flashUnit, 'keep', 'side', 'remove'] };
         default: return undefined;
     }
 }
@@ -42,7 +42,7 @@ const hints = [
     ['Track', 'Click ◉ on a unit or a row (or modifier + click a name). Tracked values stay in "Tracked values" (modifier + T) and come back after a reload.'],
     ['Search', 'Modifier + F. Try "counter", "tooltip", "@step" or "@user".'],
     ['Changes', 'Use the buttons of the counters, todos and "touch": changed values flash and keep "(was …)". Set valueDetail to detail and press "move" to see nested changes.'],
-    ['Inspect', 'Click ⌕ on the user row of the User card, then try user.address.geo, user.manager.reports[0].name, scores[100], fullName or _cache.hits. Click names in the tree to extend the path.'],
+    ['Expressions', 'Click ⌕ on the user row of the User card, then try user.address.geo, user.manager.reports[0].name, scores[100], fullName or _cache.hits. Click names in the tree to extend the path.'],
     ['Pin', 'In the inspect panel pin an object (Pin), then type $1.name and Track it. References stay until you remove them.'],
     ['Held by', 'Pin the logger of the Apples ($1) in the inspect panel: the References list shows which units hold the same instance. The Pears have one of their own. Pins and their paths come back after a reload.'],
     ['Lists', 'Track a todo item, then switch the list filter: the entry waits as "gone" and takes the item back when the item shows up again.'],

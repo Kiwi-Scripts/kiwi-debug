@@ -1,6 +1,7 @@
 import { button, div, type PanelDefinition } from '@kiwi-js/panels';
 
 import type { Unit } from '../../adapter/types';
+import { ICONS } from '../../core/icons';
 import { logGroup } from '../../core/console';
 import { formatExpression, type Segment } from '../../core/expressions';
 import { copyValue } from '../../core/format';
@@ -11,8 +12,8 @@ import { describeValue } from '../../core/values';
 import type { HeldBy } from './held-by';
 import type { WatchModel } from './model';
 
-/** What `overlay.panels.open( 'inspect', args )` takes. */
-export interface InspectArgs {
+/** What `overlay.panels.open( 'expressions', args )` takes. */
+export interface ExpressionsArgs {
     /** The unit a path starts at; not needed for a path that starts at a pin (`$1.x`). */
     unit?: Unit;
     element?: Element | null;
@@ -29,24 +30,25 @@ interface HistoryEntry {
     element?: WeakRef<Element>;
 }
 
-const isArgs = ( value: unknown ): value is InspectArgs => typeof value === 'object' && value !== null && typeof ( value as InspectArgs ).expression === 'string';
+const isArgs = ( value: unknown ): value is ExpressionsArgs => typeof value === 'object' && value !== null && typeof ( value as ExpressionsArgs ).expression === 'string';
 
 /**
  * The small panel for looking deeper into one value: a path input, and the live, detailed value it leads to. A name in the tree
  * extends the path; `Track` keeps the path in the watch list; `Pin` makes the object a reference that paths can start at.
  */
-export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy: HeldBy, onTracked: () => void ): PanelDefinition {
+export function createExpressionsPanel( ctx: DebugContext, model: WatchModel, heldBy: HeldBy, onTracked: () => void ): PanelDefinition {
     const { adapter } = ctx;
     /** Kept across openings of the panel. */
     const history: HistoryEntry[] = [];
     return {
-        id: 'inspect',
-        title: 'Inspect',
-        tray: false,
+        id: 'expressions',
+        title: 'Expressions',
+        icon: ICONS.CODE,
+        hotkey: 'KeyE',
         size: { width: 420, height: 300 },
-        // Next to the button that was clicked.
+        // Next to the button that was clicked, or the pointer.
         defaultPosition: 'cursor',
-        className: 'kd-inspect-panel',
+        className: 'kd-expr-panel',
         mount( pc ) {
             let unit: Unit | undefined;
             let element: Element | null = null;
@@ -54,24 +56,24 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
             let current: { value: unknown; ok: boolean } = { value: undefined, ok: false };
             const state = createValueViewState();
 
-            const root = div( 'kd-inspect' );
+            const root = div( 'kd-expr' );
             const input = document.createElement( 'input' );
-            input.className = 'kp-input kd-inspect-input';
+            input.className = 'kp-input kd-expr-input';
             input.spellcheck = false;
             input.placeholder = 'path, e.g. items[0].name';
             /** Where in `history` the input is; `history.length` for an input that is not part of it (yet). */
             let at = 0;
             const back = button( '‹', 'Back to the previous input', () => go( -1 ), { mini: true } );
             const forward = button( '›', 'Forward to the next input', () => go( 1 ), { mini: true } );
-            const bar = div( 'kd-inspect-bar' );
+            const bar = div( 'kd-expr-bar' );
             const track = button( 'Track', 'Keep this path in the watch list', () => toggleTrack(), { mini: true } );
             const pin = button( 'Pin', 'Keep this object as a reference ($n) that paths can start at', () => pinValue(), { mini: true } );
             const log = button( 'Log', 'Log the value to the console', () => logGroup( input.value, [['value', current.value], ['copy', safe( () => copyValue( current.value ) )]] ), { mini: true } );
             const controls = div( 'kp-row' );
             controls.append( track, pin, log );
-            const message = div( 'kd-inspect-msg' );
-            const out = div( 'kd-inspect-out' );
-            const held = div( 'kd-inspect-held' );
+            const message = div( 'kd-expr-msg' );
+            const out = div( 'kd-expr-out' );
+            const held = div( 'kd-expr-held' );
             bar.append( back, forward, input );
             root.append( bar, controls, message, out, held );
 
@@ -133,7 +135,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
                 setText( text );
             };
 
-            const setTitle = (): void => pc.setTitle( `Inspect · ${unit ? adapter.units.describe( unit ).name : 'reference'}` );
+            const setTitle = (): void => pc.setTitle( unit ? `Expressions · ${adapter.units.describe( unit ).name}` : 'Expressions' );
 
             const toggleTrack = (): void => {
                 const on = model.toggleExpression( unit ? { unit, element } : undefined, input.value );
@@ -231,9 +233,9 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
                         setTitle();
                         setText( args.expression );
                         input.focus();
-                    } else if ( !input.value ) {
-                        // Restored from the saved state of an earlier page load: there is nothing to inspect, so there is nothing to show.
-                        queueMicrotask( () => pc.panel.close() );
+                    } else {
+                        // From the tray or the hotkey: what was there stays, ready to be typed into.
+                        input.focus();
                     }
                 },
                 refresh: () => update( false ),

@@ -74,8 +74,8 @@ describe( 'actions in the overlay', () => {
         enableDebug( { adapter: fake, features: ['inspector', 'watch'], overlay: { storage: false as never } } );
         pin();
         expect( unitButtons() ).toEqual( ['track', 'address'] );
-        expect( rowButtons() ).toEqual( ['track', 'inspect'] );
-        expect( DEFAULT_ACTIONS.row ).toEqual( ['track', 'graph', 'inspect'] );
+        expect( rowButtons() ).toEqual( ['track', 'expressions'] );
+        expect( DEFAULT_ACTIONS.row ).toEqual( ['track', 'graph', 'expressions'] );
     } );
 
     it( 'shows only the configured buttons, by name', () => {

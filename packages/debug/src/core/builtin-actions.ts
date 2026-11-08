@@ -5,7 +5,7 @@ import type { ActionConfig, ActionDef, ActionRegistry } from './actions';
 
 /** What the overlay shows when the options do not say otherwise (the same buttons as always, plus `inspect`). */
 export const DEFAULT_ACTIONS = {
-    row: ['track', 'graph', 'inspect'] as ActionConfig[],
+    row: ['track', 'graph', 'expressions'] as ActionConfig[],
     unit: ['track', 'graph', 'address', 'keep', 'side', 'remove'] as ActionConfig[]
 };
 

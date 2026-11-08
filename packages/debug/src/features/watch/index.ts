@@ -12,7 +12,7 @@ import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/typ
 import { createHeldBy } from './held-by';
 import { createUnitPanel } from './unit-panel';
 import { referenceLabel } from '../../core/references';
-import { createInspectPanel } from './inspect-panel';
+import { createExpressionsPanel } from './expressions-panel';
 import { createWatchModel, type WatchEntry } from './model';
 import { EXPRESSIONS } from './paths';
 import type { Pin } from './pins';
@@ -200,7 +200,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
                 const value = view.valueCell( key, text, () => model.reader.read( undefined, text ), snapshot.get( key )?.text );
                 // The value of the pin itself needs no name: it is the title above.
                 row.append( ...( text === pin.id ? [] : [span( `kd-name kd-${EXPRESSIONS}`, text ), ' = '] ), value,
-                    button( '⌕', 'Inspect this path', () => overlay.panels.open( 'inspect', { expression: text } ), { mini: true } ) );
+                    button( '⌕', 'Open this path in expressions', () => overlay.panels.open( 'expressions', { expression: text } ), { mini: true } ) );
                 changes.markRow( row, key );
                 row.onmouseenter = () => changes.dismiss( key );
                 return row;
@@ -326,14 +326,14 @@ function setup( ctx: DebugContext ): FeatureInstance {
         } )
     ];
     offActions.push( ctx.actions.register( 'row', {
-        id: 'inspect', icon: '⌕', title: 'Inspect this value further',
-        run: c => c.row && overlay.panels.open( 'inspect', { unit: c.target.unit, element: c.target.element, expression: c.row.category === 'form' ? '' : c.row.name } ),
-        visible: c => !!c.row && c.row.category !== 'form' && !!overlay.panels.get( 'inspect' )
+        id: 'expressions', icon: '⌕', title: 'Open this value in expressions',
+        run: c => c.row && overlay.panels.open( 'expressions', { unit: c.target.unit, element: c.target.element, expression: c.row.category === 'form' ? '' : c.row.name } ),
+        visible: c => !!c.row && c.row.category !== 'form' && !!overlay.panels.get( 'expressions' )
     } ) );
     const hotkeys: HotkeyBinding[] = [{
         combo: 'Escape', modifier: false, allowWhileEditing: true,
         handler: () => {
-            const mini = overlay.panels.get( 'inspect' );
+            const mini = overlay.panels.get( 'expressions' );
             if ( mini?.state === 'open' ) {
                 mini.close();
                 return true;
@@ -341,7 +341,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             return false;
         }
     }];
-    const inspectPanel = createInspectPanel( ctx, model, heldBy, () => {
+    const inspectPanel = createExpressionsPanel( ctx, model, heldBy, () => {
         reveal();
         signature = '';
         refresh();

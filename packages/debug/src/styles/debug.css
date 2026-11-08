@@ -49,17 +49,17 @@
 .kd-more { cursor: pointer; }
 .kd-circular, .kd-getter { color: var(--kp-muted); }
 
-/* Inspect panel */
-.kd-inspect-bar { display: flex; gap: 4px; align-items: center; }
-.kd-inspect-input { flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; }
-.kd-inspect-bar .kp-btn:disabled { opacity: 0.35; }
-.kd-inspect .kp-row { margin-top: 4px; }
-.kd-inspect-msg { margin-top: 6px; min-height: 1em; color: var(--kp-muted); }
-.kd-inspect-msg.kd-error, .kd-error { color: #f44747; }
-.kd-inspect-out { margin-top: 6px; }
+/* Expressions panel */
+.kd-expr-bar { display: flex; gap: 4px; align-items: center; }
+.kd-expr-input { flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; }
+.kd-expr-bar .kp-btn:disabled { opacity: 0.35; }
+.kd-expr .kp-row { margin-top: 4px; }
+.kd-expr-msg { margin-top: 6px; min-height: 1em; color: var(--kp-muted); }
+.kd-expr-msg.kd-error, .kd-error { color: #f44747; }
+.kd-expr-out { margin-top: 6px; }
 
 /* Tracked entries and references that are not on the page */
 .kd-gone { opacity: 0.7; }
 .kd-held { gap: 6px; }
 .kd-ref { color: var(--kp-info); }
-.kd-inspect-held { margin-top: 6px; }
+.kd-expr-held { margin-top: 6px; }

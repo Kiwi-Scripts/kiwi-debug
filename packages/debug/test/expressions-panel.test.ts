@@ -141,12 +141,12 @@ describe( 'the inspect panel', () => {
     const key = ( type: 'keydown' | 'keyup', init: KeyboardEventInit ): void => {
         document.dispatchEvent( new KeyboardEvent( type, { bubbles: true, cancelable: true, composed: true, ...init } ) );
     };
-    const input = (): HTMLInputElement => panelEl( 'inspect' ).querySelector( 'input' )!;
+    const input = (): HTMLInputElement => panelEl( 'expressions' ).querySelector( 'input' )!;
     const type = ( text: string ): void => {
         input().value = text;
         input().dispatchEvent( new Event( 'input' ) );
     };
-    const button = ( label: string ): HTMLButtonElement => Array.from( panelEl( 'inspect' ).querySelectorAll<HTMLButtonElement>( 'button' ) ).find( b => b.textContent === label )!;
+    const button = ( label: string ): HTMLButtonElement => Array.from( panelEl( 'expressions' ).querySelectorAll<HTMLButtonElement>( 'button' ) ).find( b => b.textContent === label )!;
 
     /** Pins the card in the inspector and opens the inspect panel from the row of `name`. */
     function inspectRow( name: string ): void {
@@ -154,7 +154,7 @@ describe( 'the inspect panel', () => {
         document.getElementById( 'card' )!.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true, composed: true, altKey: true } ) );
         key( 'keyup', { key: 'Alt', code: 'AltLeft', altKey: false } );
         const row = Array.from( shadow().querySelectorAll( '.kd-unit .kd-row' ) ).find( r => r.querySelector( '.kd-name' )?.textContent === name )!;
-        row.querySelector<HTMLButtonElement>( '.kd-action-inspect' )!.click();
+        row.querySelector<HTMLButtonElement>( '.kd-action-expressions' )!.click();
     }
 
     beforeEach( () => {
@@ -170,43 +170,50 @@ describe( 'the inspect panel', () => {
         vi.restoreAllMocks();
     } );
 
-    it( 'opens from a row, starting at the property, without a tray button of its own', () => {
+    it( 'opens from a row, starting at the property', () => {
         inspectRow( 'items' );
-        expect( isOpen( 'inspect' ) ).toBe( true );
+        expect( isOpen( 'expressions' ) ).toBe( true );
         expect( input().value ).toBe( 'items' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( 'Inspect · Card' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( 'Array(2)' );
-        expect( shadow().querySelector( '.kp-tray [data-panel="inspect"]' ) ).toBeNull();
+        expect( panelEl( 'expressions' ).textContent ).toContain( 'Expressions · Card' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( 'Array(2)' );
+    } );
+
+    it( 'has a tray button and a hotkey, and opens empty without a target', () => {
+        expect( shadow().querySelector( '.kp-tray [data-panel="expressions"]' ) ).toBeTruthy();
+        key( 'keydown', { key: 'e', code: 'KeyE', altKey: true } );
+        expect( isOpen( 'expressions' ) ).toBe( true );
+        expect( panelEl( 'expressions' ).textContent ).toContain( 'Expressions' );
+        expect( input().value ).toBe( '' );
     } );
 
     it( 'follows the path that is typed and says when it cannot', () => {
         inspectRow( 'items' );
         type( 'items[1].name' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( '"b"' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( '"b"' );
         type( 'items[7].name' );
-        expect( panelEl( 'inspect' ).querySelector( '.kd-error' )!.textContent ).toBe( '⊘ items[7] is undefined' );
+        expect( panelEl( 'expressions' ).querySelector( '.kd-error' )!.textContent ).toBe( '⊘ items[7] is undefined' );
         type( 'items(' );
-        expect( panelEl( 'inspect' ).querySelector( '.kd-error' )!.textContent ).toContain( 'calls are not allowed' );
+        expect( panelEl( 'expressions' ).querySelector( '.kd-error' )!.textContent ).toContain( 'calls are not allowed' );
     } );
 
     it( 'extends the path when a name in the tree is clicked', () => {
         inspectRow( 'items' );
-        panelEl( 'inspect' ).querySelector<HTMLElement>( '.kd-node-row' )!.click();
-        const first = Array.from( panelEl( 'inspect' ).querySelectorAll<HTMLElement>( '.kd-name' ) ).find( n => n.textContent === '0' )!;
+        panelEl( 'expressions' ).querySelector<HTMLElement>( '.kd-node-row' )!.click();
+        const first = Array.from( panelEl( 'expressions' ).querySelectorAll<HTMLElement>( '.kd-name' ) ).find( n => n.textContent === '0' )!;
         first.click();
         expect( input().value ).toBe( 'items[0]' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( 'name: "a"' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( 'name: "a"' );
     } );
 
     it( 're-evaluates when the value changes', () => {
         vi.useFakeTimers();
         inspectRow( 'plain' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( '5' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( '5' );
         const unit = fake.world.unitsAt( document.getElementById( 'card' )! )[0];
         unit.inputs.plain = 6;
         fake.world.render();
         vi.advanceTimersByTime( 300 );
-        expect( panelEl( 'inspect' ).textContent ).toContain( '6' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( '6' );
     } );
 
     it( 'tracks the path in the watch list, and stops again', () => {
@@ -226,8 +233,8 @@ describe( 'the inspect panel', () => {
         button( 'Track' ).click();
         const row = Array.from( panelEl( 'watch' ).querySelectorAll( '.kd-row' ) ).find( r => r.textContent?.includes( 'secret.deep.n' ) )!;
         expect( row.querySelector( '.kd-expressions' ) ).toBeTruthy();
-        panelEl( 'inspect' ).querySelector( 'input' )!.value = '';
-        row.querySelector<HTMLButtonElement>( '.kd-action-inspect' )!.click();
+        panelEl( 'expressions' ).querySelector( 'input' )!.value = '';
+        row.querySelector<HTMLButtonElement>( '.kd-action-expressions' )!.click();
         expect( input().value ).toBe( 'secret.deep.n' );
     } );
 
@@ -243,7 +250,7 @@ describe( 'the inspect panel', () => {
         expect( panelEl( 'watch' ).textContent ).not.toContain( '$1 =' );
         expect( panelEl( 'watch' ).textContent ).toContain( '{ name: "b", … }' );
         type( '$1.name' );
-        expect( panelEl( 'inspect' ).textContent ).toContain( '"b"' );
+        expect( panelEl( 'expressions' ).textContent ).toContain( '"b"' );
         button( 'Track' ).click();
         expect( panelEl( 'watch' ).textContent ).toContain( '$1.name = "b"' );
     } );
@@ -260,7 +267,7 @@ describe( 'the inspect panel', () => {
         expect( panelEl( 'watch' ).textContent ).not.toContain( 'References' );
     } );
 
-    const nav = ( label: string ): HTMLButtonElement => Array.from( panelEl( 'inspect' ).querySelectorAll<HTMLButtonElement>( '.kd-inspect-bar button' ) ).find( b => b.textContent === label )!;
+    const nav = ( label: string ): HTMLButtonElement => Array.from( panelEl( 'expressions' ).querySelectorAll<HTMLButtonElement>( '.kd-expr-bar button' ) ).find( b => b.textContent === label )!;
 
     it( 'remembers what the input is replaced by, and walks back and forward through it', () => {
         inspectRow( 'items' );
@@ -286,7 +293,7 @@ describe( 'the inspect panel', () => {
         expect( input().value ).toBe( 'items[0].name' );
         // Opened again from another row: the input that was there is kept.
         const row = Array.from( shadow().querySelectorAll( '.kd-unit .kd-row' ) ).find( r => r.querySelector( '.kd-name' )?.textContent === 'plain' )!;
-        row.querySelector<HTMLButtonElement>( '.kd-action-inspect' )!.click();
+        row.querySelector<HTMLButtonElement>( '.kd-action-expressions' )!.click();
         expect( input().value ).toBe( 'plain' );
         nav( '‹' ).click();
         expect( input().value ).toBe( 'items[0].name' );
@@ -313,7 +320,7 @@ describe( 'the inspect panel', () => {
         const esc = new KeyboardEvent( 'keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true } );
         document.dispatchEvent( esc );
         expect( esc.defaultPrevented ).toBe( true );
-        expect( isOpen( 'inspect' ) ).toBe( false );
+        expect( isOpen( 'expressions' ) ).toBe( false );
     } );
 
     it( 'is left out of the rows when the actions are listed without it', () => {
@@ -324,6 +331,6 @@ describe( 'the inspect panel', () => {
         enableDebug( { adapter: fake, features: ['inspector', 'watch'], overlay: { storage: false as never }, actions: { row: ['track'] } } );
         key( 'keydown', { key: 'Alt', code: 'AltLeft', altKey: true } );
         document.getElementById( 'card' )!.dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true, composed: true, altKey: true } ) );
-        expect( shadow().querySelector( '.kd-action-inspect' ) ).toBeNull();
+        expect( shadow().querySelector( '.kd-action-expressions' ) ).toBeNull();
     } );
 } );

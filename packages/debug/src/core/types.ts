@@ -25,7 +25,7 @@ export interface DebugOptions {
     overlay?: Pick<OverlayOptions, 'tray' | 'theme' | 'storage' | 'container'>;
     /**
      * The buttons of unit heads and value rows, in order: a built-in action by name, or a definition of your own. A list given here
-     * replaces the default list of that kind. Built-ins: rows `track`, `graph`, `inspect`; units `track`, `graph`, `address`, `keep`, `side`, `remove`.
+     * replaces the default list of that kind. Built-ins: rows `track`, `graph`, `expressions`; units `track`, `graph`, `address`, `keep`, `side`, `remove`.
      */
     actions?: Partial<ActionLists>;
     /** Whether arrays and objects in value rows can be opened in place. Default: 'summary', one line per value. */
