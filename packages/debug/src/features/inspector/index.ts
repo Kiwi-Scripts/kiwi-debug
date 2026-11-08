@@ -12,9 +12,10 @@ import { safe } from '../../core/safe';
 import { InspectedElement } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
 import type { TrackedRow } from '../../core/units';
+import { ICONS } from '../../core/icons';
 import { createHoverController } from './hover';
 
-const ICON = 'M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z';
+const ICON = ICONS.TARGET;
 
 interface UnitInfo {
     unit: Unit;
@@ -208,11 +209,6 @@ function setup( ctx: DebugContext ): FeatureInstance {
         } else {
             nodes.push( button( 'Pin', 'Let the inspector close', () => panel()?.close(), { mini: true, on: true } ) );
         }
-        if ( target ) {
-            nodes.push(
-                button( '←', 'Parent (modifier + ←)', () => go( 'parent' ), { mini: true, disabled: !ctx.findParent( target ) } ),
-                button( '→', 'Child (modifier + →)', () => go( 'child' ), { mini: true, disabled: !ctx.findChildren( target ).length } ) );
-        }
         pc.setHeaderRight( nodes );
     };
 
@@ -337,7 +333,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         hotkey: 'KeyP',
         dockable: true,
         trayToggle: 'minimize',
-        defaultPosition: 'top-right',
+        defaultPosition: { at: 'top-right', stack: ['left', 'down'] },
         mount( context ) {
             pc = context;
             root = div( 'kd-inspector-body' );

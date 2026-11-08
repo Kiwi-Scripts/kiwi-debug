@@ -10,7 +10,7 @@
 .kd-head { padding-bottom: 6px; }
 .kd-hint { padding: 4px 0; }
 .kd-group { margin-top: 2px; }
-.kd-row { flex-wrap: wrap; overflow-wrap: anywhere; }
+.kd-row { flex-wrap: wrap; align-items: flex-start; overflow-wrap: anywhere; }
 .kd-name { color: var(--kp-fg); }
 .kd-name.kd-inputs { color: #7cc05b; }
 .kd-name.kd-outputs { color: var(--kp-info); }

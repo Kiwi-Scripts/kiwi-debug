@@ -6,6 +6,7 @@ import { DEFAULT_ACTIONS } from './builtin-actions';
 import { ALL_FEATURE_IDS } from '../features';
 import { DEFAULT_TRACKED_COLORS } from '../features/watch/model';
 import { logWarn } from './console';
+import { ICONS } from './icons';
 import { mountOverlay } from './mount';
 import type { DebugOptions, EffectiveOptions } from './types';
 
@@ -85,7 +86,8 @@ const signatureOf = ( options: EffectiveOptions, off: boolean ): string =>
 
 function mountDormant( options: EffectiveOptions ): () => void {
     const launcher = createDormantLauncher( {
-        label: 'Off',
+        label: 'off',
+        icon: ICONS.BUG,
         title: 'kiwi-debug is switched off. Click to switch it on.',
         theme: options.overlay.theme,
         container: options.overlay.container,

@@ -7,9 +7,8 @@ import { BUILTIN_FEATURES, SETUP_ORDER, TRAY_ORDER } from '../features';
 import { DEBUG_CSS } from '../styles';
 import { logInfo, logWarn } from './console';
 import { createDebugContext } from './context';
+import { ICONS } from './icons';
 import type { DebugFeature, EffectiveOptions, FeatureInstance } from './types';
-
-const POWER_ICON = 'M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.05.88-3.9 2.29-5.19L5.88 5.4A8.93 8.93 0 0 0 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.63-1.13-5-3.17-6.83z';
 
 export interface MountHooks {
     /** The power button of the tray was clicked. Without it, there is no such button. */
@@ -51,10 +50,10 @@ export function mountOverlay( options: EffectiveOptions, hooks: MountHooks = {} 
     const runOutside = <T>( fn: () => T ): T => adapter.env.runOutside ? adapter.env.runOutside( fn ) : fn();
 
     const commands: TrayCommand[] = hooks.onSwitchOff
-        ? [{ id: 'power', title: 'Switch kiwi-debug off', icon: POWER_ICON, onClick: hooks.onSwitchOff }]
+        ? [{ id: 'power', title: 'Switch kiwi-debug off', icon: ICONS.POWER, onClick: hooks.onSwitchOff }]
         : [];
     const overlay = createOverlay( {
-        tray: options.overlay.tray ?? cornerDock( { trayHotkey: 'KeyM' } ),
+        tray: options.overlay.tray ?? cornerDock( { trayHotkey: 'KeyM', icon: ICONS.BUG } ),
         trayCommands: commands,
         theme: options.overlay.theme,
         storage: options.overlay.storage,

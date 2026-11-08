@@ -107,7 +107,7 @@ describe( 'off switch', () => {
         expect( isSwitchedOff() ).toBe( true );
         expect( launcher() ).toBeTruthy();
         expect( hasPanels() ).toBe( false );
-        expect( host()!.shadowRoot!.textContent ).toContain( 'Off' );
+        expect( host()!.shadowRoot!.textContent ).toContain( 'off' );
     } );
 
     it( 'wakes up on a click: clears the flag and mounts the live overlay', () => {

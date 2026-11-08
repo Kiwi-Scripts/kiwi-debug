@@ -31,8 +31,8 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
         title: 'Inspect',
         tray: false,
         size: { width: 420, height: 300 },
-        // Bottom left, with room for about 340 px: the content does not exist yet when the position is worked out.
-        defaultPosition: () => ( { left: 16, top: Math.max( 8, window.innerHeight - 340 ) } ),
+        // Next to the button that was clicked.
+        defaultPosition: 'cursor',
         className: 'kd-inspect-panel',
         mount( pc ) {
             let unit: Unit | undefined;

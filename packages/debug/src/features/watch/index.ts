@@ -6,6 +6,7 @@ import {
 
 import { createChangeTracker, groupKey, rowKey } from '../../core/change-tracker';
 import { createDirectiveView } from '../../core/directive-view';
+import { ICONS } from '../../core/icons';
 import { Tracking, type TrackTarget } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
 import { createInspectPanel } from './inspect-panel';
@@ -15,7 +16,7 @@ import type { Pin } from './pins';
 
 const CATEGORIES = ['inputs', 'outputs', 'properties', 'form', EXPRESSIONS];
 
-const ICON = 'M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10z';
+const ICON = ICONS.EYE;
 
 /** Where tracked values are kept: the storage given for the overlay, else the session (per tab). */
 function storageFor( ctx: DebugContext ): StorageAdapter {
@@ -254,7 +255,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         title: 'Tracked values',
         icon: ICON,
         hotkey: 'KeyT',
-        defaultPosition: 'top-right',
+        defaultPosition: { at: 'top-right', stack: ['left', 'down'] },
         mount( context ) {
             pc = context;
             root = div( 'kd-watch-body' );
