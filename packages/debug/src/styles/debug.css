@@ -63,3 +63,57 @@
 .kd-held { gap: 6px; }
 .kd-ref { color: var(--kp-info); }
 .kd-expr-held { margin-top: 6px; }
+
+/* Signal graph */
+.kd-graph { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.kd-graph-tools { gap: 4px; margin-bottom: 4px; flex-wrap: wrap; }
+.kd-graph-note { padding: 2px 0; }
+.kd-graph-note:empty { display: none; }
+.kd-graph-view { flex: 1; min-height: 160px; position: relative; overflow: hidden; border: 1px solid var(--kp-border); border-radius: 4px; cursor: grab; touch-action: none; }
+.kd-graph-view:active { cursor: grabbing; }
+.kd-graph-view svg { display: block; user-select: none; }
+.kd-graph-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.kd-graph-stage.kd-panning { will-change: transform; }
+.kd-hot-layer { pointer-events: none; }
+.kd-gnode rect { fill: var(--kp-bg-hover); stroke: var(--kp-border-strong); stroke-width: 1.5; }
+.kd-gnode { cursor: pointer; }
+.kd-gk-signal rect { stroke: #7cc05b; }
+.kd-gk-computed rect { stroke: var(--kp-info); }
+.kd-gk-effect rect, .kd-gk-template rect { stroke: #e5c07b; }
+.kd-root rect { stroke-width: 3; }
+.kd-gnode.kd-focused rect { stroke: var(--kp-accent); stroke-width: 3.5; fill: color-mix(in srgb, var(--kp-accent) 18%, var(--kp-bg-hover)); }
+.kd-dashed rect { stroke-dasharray: 5 3; }
+.kd-gnode text { fill: var(--kp-fg); font: 11px ui-monospace, monospace; pointer-events: none; }
+.kd-gnode .kd-gname { font-weight: bold; }
+.kd-gnode .kd-gmeta { fill: var(--kp-muted); }
+.kd-gedge { fill: none; stroke: var(--kp-muted); stroke-width: 1.3; }
+.kd-arrow { fill: var(--kp-muted); }
+.kd-arrow.kd-arrow-hot { fill: var(--kp-accent); }
+.kd-gedge.kd-hot { stroke: var(--kp-accent); stroke-width: 2.4; }
+.kd-gnode.kd-dim, .kd-gedge.kd-dim { opacity: 0.2; }
+.kd-gnode.kd-faded, .kd-gedge.kd-faded { opacity: 0.18; }
+.kd-gnode.kd-changed rect { fill: color-mix(in srgb, var(--kp-accent) 35%, var(--kp-bg-hover)); }
+.kd-gnode.kd-pulse rect { stroke-width: 3; fill: color-mix(in srgb, var(--kp-accent) 30%, var(--kp-bg-hover)); }
+/* Translucent so that the highlights on the page show through, but without the blur of a fullscreen panel: blurring everything behind
+   it again for every change of the graph is what made it lag. */
+.kp-panel.kp-fullscreen.kd-graph-panel { background: color-mix(in srgb, var(--kp-bg) 72%, transparent); backdrop-filter: none; }
+
+/* Legend */
+.kd-graph-legend { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 4px 2px 0; font-size: 11px; }
+.kd-lg-item { display: inline-flex; align-items: center; gap: 4px; }
+.kd-lg-swatch { display: inline-block; width: 14px; height: 9px; border: 2px solid var(--kp-border-strong); border-radius: 3px; box-sizing: border-box; }
+.kd-lg-signal { border-color: #7cc05b; }
+.kd-lg-computed { border-color: var(--kp-info); }
+.kd-lg-effect { border-color: #e5c07b; }
+.kd-lg-other { border-color: var(--kp-border-strong); }
+.kd-lg-dashed { border-style: dashed; border-color: var(--kp-muted); }
+.kd-lg-root { border-width: 3px; border-color: var(--kp-muted); }
+
+/* Replay */
+.kd-replay:empty { display: none; }
+.kd-splitter { height: 6px; margin: 2px 0; cursor: row-resize; border-radius: 3px; background: var(--kp-border); }
+.kd-replay-controls { gap: 4px; align-items: center; }
+.kd-scrub { flex: 1; min-width: 60px; }
+.kd-replay-label { white-space: nowrap; }
+.kd-replay-list { height: 120px; overflow: auto; }
+.kd-gline { align-items: baseline; }

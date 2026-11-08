@@ -1,6 +1,6 @@
 import { htmlEl } from '@kiwi-js/dom';
 
-import { attach, computed, inTask, signal, type Signal } from './mini';
+import { attach, computed, Effect, inTask, signal, type Signal } from './mini';
 
 /**
  * The demo app. Every piece is a unit attached to an element; the data is chosen to exercise the overlay: signals and computed
@@ -218,6 +218,75 @@ function ticker(): HTMLElement {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
+// Cart: a deeper graph of signals, computed values and an effect, shared between units
+
+/** A service: the tax rate is read by the cart and by the badge next to it, so its node has consumers in two units. */
+const settings = { taxRate: signal( 0.19, 'taxRate' ), currency: signal<'EUR' | 'USD'>( 'EUR', 'currency' ) };
+
+class CartLineState {
+    readonly qty: Signal<number>;
+    readonly lineTotal;
+
+    constructor( public product: string, public price: number, qty: number ) {
+        this.qty = signal( qty, `${product} qty` );
+        this.lineTotal = computed( () => this.qty.get() * this.price, `${product} total` );
+    }
+}
+
+class CartState {
+    readonly lines = [new CartLineState( 'Pen', 3, 2 ), new CartLineState( 'Notebook', 7, 1 ), new CartLineState( 'Lamp', 24, 1 )];
+    readonly coupon = signal<'' | 'SAVE10'>( '', 'coupon' );
+    readonly subtotal = computed( () => this.lines.reduce( ( sum, line ) => sum + line.lineTotal.get(), 0 ), 'subtotal' );
+    readonly discount = computed( () => ( this.coupon.get() === 'SAVE10' ? this.subtotal.get() * 0.1 : 0 ), 'discount' );
+    readonly freeShipping = computed( () => this.subtotal.get() - this.discount.get() >= 40, 'freeShipping' );
+    readonly shipping = computed( () => ( this.freeShipping.get() ? 0 : 4.9 ), 'shipping' );
+    readonly tax = computed( () => ( this.subtotal.get() - this.discount.get() ) * settings.taxRate.get(), 'tax' );
+    readonly total = computed( () => this.subtotal.get() - this.discount.get() + this.tax.get() + this.shipping.get(), 'total' );
+    readonly label = computed( () => `${this.total.get().toFixed( 2 )} ${settings.currency.get()}`, 'label' );
+    /** What the effect writes: a plain property, so nobody is told. */
+    draft = '';
+
+    constructor() {
+        // An effect that is not a template: it reads the total and the coupon, and keeps a draft of the order.
+        new Effect( () => void ( this.draft = `${this.lines.length} lines, ${this.coupon.get() || 'no coupon'}, total ${this.total.get().toFixed( 2 )}` ), 'keep draft' );
+    }
+}
+
+function cartLine( line: CartLineState ): HTMLElement {
+    const li = htmlEl( 'li', { class: 'row' } );
+    const text = htmlEl( 'span' );
+    li.append( text,
+        htmlEl( 'button', { text: '−', on: { click: () => line.qty.update( q => Math.max( 0, q - 1 ) ) } } ),
+        htmlEl( 'button', { text: '+', on: { click: () => line.qty.update( q => q + 1 ) } } ) );
+    attach( li, 'CartLine', line, {
+        key: line.product,
+        inputs: ['product', 'price'],
+        render: self => void ( text.textContent = `${self.product} × ${self.qty.get()} = ${self.lineTotal.get()}` )
+    } );
+    return li;
+}
+
+function cart(): HTMLElement {
+    const root = htmlEl( 'section', { class: 'card' } );
+    const state = new CartState();
+    const lines = htmlEl( 'ul' );
+    lines.append( ...state.lines.map( cartLine ) );
+    const total = htmlEl( 'span', { class: 'value' } );
+    const badge = htmlEl( 'span', { class: 'value' } );
+    const coupon = htmlEl( 'button', { text: 'coupon', on: { click: () => state.coupon.update( c => ( c ? '' : 'SAVE10' ) ) } } );
+    const tax = htmlEl( 'button', { text: 'tax 19% / 7%', on: { click: () => settings.taxRate.update( r => ( r === 0.19 ? 0.07 : 0.19 ) ) } } );
+    const currency = htmlEl( 'button', { text: 'EUR / USD', on: { click: () => settings.currency.update( c => ( c === 'EUR' ? 'USD' : 'EUR' ) ) } } );
+    root.append( htmlEl( 'h3', { text: 'Cart' } ), lines, total, htmlEl( 'div', { class: 'row' }, coupon, tax, currency ), badge );
+    attach( root, 'Cart', state, {
+        inputs: ['lines'],
+        render: self => void ( total.textContent = `Total ${self.label.get()}${self.freeShipping.get() ? ' (free shipping)' : ''}` )
+    } );
+    // A second unit that reads the tax rate: its node now has consumers in two places.
+    attach( badge, 'TaxBadge', { settings }, { inputs: ['settings'], render: () => void ( badge.textContent = `tax ${Math.round( settings.taxRate.get() * 100 )}%` ) } );
+    return root;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
 // One element, several units
 
 function multi(): HTMLElement {
@@ -244,7 +313,7 @@ function multi(): HTMLElement {
 export function buildApp( container: HTMLElement ): void {
     const shell = htmlEl( 'main', { class: 'app' } );
     const grid = htmlEl( 'div', { class: 'grid' } );
-    grid.append( counter( 'Apples', 1, 3 ), counter( 'Pears', 5, 0, { level: 'warn', lines: [] } ), todoList(), userCard(), ticker(), multi() );
+    grid.append( counter( 'Apples', 1, 3 ), counter( 'Pears', 5, 0, { level: 'warn', lines: [] } ), todoList(), userCard(), ticker(), cart(), multi() );
     shell.append( htmlEl( 'h2', { text: 'Demo app' } ), grid );
     const config = { env: 'playground', flags: { beta: true, experiments: ['a', 'b'] }, startedAt: new Date() };
     attach( shell, 'AppRoot', { title: 'Kiwi playground', theme: signal<'dark' | 'light'>( 'dark', 'theme' ), config }, {

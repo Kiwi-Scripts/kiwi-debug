@@ -149,6 +149,38 @@ describe( 'inspector', () => {
         expect( text() ).toContain( 'label = "go"' );
     } );
 
+    it( 'picks an element with the pick button, without the click reaching the page', () => {
+        const { el } = page();
+        const pageClick = vi.fn();
+        el( 'btn' ).addEventListener( 'click', pageClick );
+        dispose = mountOverlay( options() );
+        altDown();
+        el( 'card' ).dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true, composed: true, altKey: true } ) );
+        altUp();
+        expect( text() ).toContain( 'Card' );
+        const pick = Array.from( rawPanel()!.querySelectorAll<HTMLButtonElement>( '.kp-header button' ) ).find( b => b.textContent === '⌖' )!;
+        pick.click();
+        expect( rawPanel()!.style.visibility ).toBe( 'hidden' );
+        const click = new MouseEvent( 'click', { bubbles: true, cancelable: true, composed: true } );
+        el( 'btn' ).dispatchEvent( click );
+        expect( click.defaultPrevented ).toBe( true );
+        expect( pageClick ).not.toHaveBeenCalled();
+        expect( rawPanel()!.style.visibility ).toBe( '' );
+        expect( text() ).toContain( 'Btn' );
+    } );
+
+    it( 'ends a pick with Escape', () => {
+        const { el } = page();
+        dispose = mountOverlay( options() );
+        altDown();
+        el( 'card' ).dispatchEvent( new MouseEvent( 'click', { bubbles: true, cancelable: true, composed: true, altKey: true } ) );
+        altUp();
+        Array.from( rawPanel()!.querySelectorAll<HTMLButtonElement>( '.kp-header button' ) ).find( b => b.textContent === '⌖' )!.click();
+        key( 'keydown', { key: 'Escape', code: 'Escape' } );
+        expect( rawPanel()!.style.visibility ).toBe( '' );
+        expect( text() ).toContain( 'Card' );
+    } );
+
     it( 'pins with a modified click, swallowing the click', () => {
         const { el } = page();
         const pageClick = vi.fn();

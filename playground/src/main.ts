@@ -46,6 +46,8 @@ const hints = [
     ['Pin', 'In the inspect panel pin an object (Pin), then type $1.name and Track it. References stay until you remove them.'],
     ['Held by', 'Pin the logger of the Apples ($1) in the inspect panel: the References list shows which units hold the same instance. The Pears have one of their own. Pins and their paths come back after a reload.'],
     ['Lists', 'Track a todo item, then switch the list filter: the entry waits as "gone" and takes the item back when the item shows up again.'],
+    ['Graph', 'Modifier + G over the Apples card (or ⬡ on a row) draws its signals: what feeds a value and what reads it. Click a node to keep its neighbours lit. ● Rec, press +1 a few times, ■ Stop: step through what changed and what caused it.'],
+    ['Deeper graph', 'Press Modifier + G over the Cart: line totals feed the subtotal, which feeds discount, shipping, tax and total; the shared tax rate is also read by the badge, and an effect keeps a draft. Modifier + Shift + G starts a recording at once: then change the coupon, the tax or a quantity.'],
     ['Triggers', 'The Ticker writes from a timer, so no click is behind its changes. Pause it to watch the rest.'],
     ['Latch', 'Modifier + L latches the modifier so you need not hold it. Modifier + M pins the tray. The power button switches the overlay off; the launcher switches it on.']
 ];

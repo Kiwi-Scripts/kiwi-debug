@@ -13,6 +13,7 @@ import { InspectedElement } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
 import type { TrackedRow } from '../../core/units';
 import { ICONS } from '../../core/icons';
+import { startPick } from '../../core/pick';
 import { createHoverController } from './hover';
 
 const ICON = ICONS.TARGET;
@@ -198,12 +199,26 @@ function setup( ctx: DebugContext ): FeatureInstance {
         return div( 'kp-muted kd-hint', `Hold ${key} and hover an element, or ${key} + click to pin it.` );
     };
 
+    /** Ends the pick of an element on the page, if one is going on. */
+    let picking: ( () => void ) | undefined;
+    const beginPick = (): void => {
+        picking?.();
+        const handle = panel();
+        if ( !handle ) {
+            return;
+        }
+        if ( handle.previewing ) {
+            handle.open();
+        }
+        picking = startPick( ctx, { hide: handle.element, onPick: el => panel()?.open( el ), onEnd: () => void ( picking = undefined ) } );
+    };
+
     const updateHeader = (): void => {
         if ( !pc ) {
             return;
         }
         pc.setTitle( target ? `Inspector · ${describeElement( target )}` : 'Inspector' );
-        const nodes: Node[] = [];
+        const nodes: Node[] = [button( '⌖', 'Pick an element on the page', beginPick, { mini: true } )];
         if ( panel()?.previewing ) {
             nodes.push( button( 'Pin', 'Pin: keep the inspector open', () => panel()?.open(), { mini: true } ) );
         } else {
@@ -310,6 +325,11 @@ function setup( ctx: DebugContext ): FeatureInstance {
         {
             combo: 'Escape', modifier: false, allowWhileEditing: true,
             handler: () => {
+                // The first Escape ends a pick, and only the next one closes the panel.
+                if ( picking ) {
+                    picking();
+                    return true;
+                }
                 const handle = panel();
                 if ( handle?.state === 'open' ) {
                     handle.close();
@@ -373,6 +393,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         hotkeys,
         listeners: [...hover.listeners, [window, 'scroll', reposition, true], [window, 'resize', reposition, false]],
         dispose() {
+            picking?.();
             offService();
             hover.dispose();
             hover.clear();

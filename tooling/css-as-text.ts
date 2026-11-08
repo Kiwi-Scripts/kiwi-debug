@@ -18,6 +18,21 @@ export const cssAsText = (): Plugin => {
         configResolved( config ) {
             root = config.root;
         },
+        // addWatchFile alone does not reach a virtual module: invalidate the ones of the stylesheet that changed, and reload the page.
+        configureServer( server ) {
+            const normal = ( path: string ): string => path.replace( /\\/g, '/' ).toLowerCase();
+            server.watcher.on( 'change', file => {
+                if ( !file.endsWith( '.css' ) ) {
+                    return;
+                }
+                for ( const mod of server.moduleGraph.idToModuleMap.values() ) {
+                    if ( mod.id?.startsWith( VIRTUAL_PREFIX ) && normal( mod.id ).includes( normal( file ) ) ) {
+                        server.moduleGraph.invalidateModule( mod );
+                        server.ws.send( { type: 'full-reload' } );
+                    }
+                }
+            } );
+        },
         async resolveId( source, importer, options ) {
             if ( !source.endsWith( '.css' ) || !importer ) {
                 return undefined;
