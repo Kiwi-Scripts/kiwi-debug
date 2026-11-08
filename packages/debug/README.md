@@ -32,6 +32,8 @@ A definition may also set `slot` ('leading' before the name, 'trailing' after th
 
 - `valueDetail: 'detail'` lets arrays and objects open in place in every value row (default `'summary'`: one line per value).
 - The `inspect` action opens a small panel with a path input (`items[0].name`, `a?.b`, `$1.users[2]`) and the live, detailed value it leads to. Click a name in the tree to extend the path. `Track` keeps the path as a tracked value in the watch list, `Pin` turns an object into a reference `$n` that paths can start at. Paths are re-evaluated on every refresh; calls and operators are not part of the syntax.
+- References are kept: a pin remembers the path that led to its object and the address of the unit that path starts at, so it comes back after a reload (the adapter needs `addressing`). Hovering a reference outlines the element it was found on, and a pin lists the other places that hold the same object (`held by Counter.logger Ticker.logger`), so a service that was overridden for some units shows up as missing there. Only direct members of units are looked at.
+- Tracked units whose element leaves the page (a re-rendered list, say) stay in the list as `gone`, and take the unit that shows up at their address again. For lists, an adapter can make the address depend on the item rather than its position.
 - An adapter can add `units.instance( unit )` so that paths may start at anything on the instance, not just its inputs and properties.
 
 ## Peer dependencies
