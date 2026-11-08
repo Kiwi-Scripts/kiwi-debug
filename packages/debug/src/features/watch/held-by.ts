@@ -11,7 +11,7 @@ export interface HeldBy {
     /** Where the object is held (cached for a moment, since this looks through the page). */
     of( object: unknown ): Reference[];
     /** A row with one chip per place: it tracks that value, and hovering outlines its element. Empty if there is none. */
-    render( held: readonly Reference[] ): HTMLElement | undefined;
+    render( held: readonly Reference[], label?: string ): HTMLElement | undefined;
 }
 
 /** Shows where else an object is held, e.g. which units were given the same service instance. */
@@ -30,12 +30,12 @@ export function createHeldBy( ctx: DebugContext ): HeldBy {
             cache.set( object, { at: Date.now(), found } );
             return found;
         },
-        render( held ) {
+        render( held, label = 'held by' ) {
             if ( !held.length ) {
                 return undefined;
             }
             const row = div( 'kp-row kd-row kd-held' );
-            row.append( span( 'kp-muted', 'held by' ) );
+            row.append( span( 'kp-muted', label ) );
             for ( const ref of held ) {
                 const chip = span( 'kp-link kd-ref', referenceLabel( ref ), ref.member ? 'Track this value' : 'Track this unit' );
                 chip.onclick = () => {

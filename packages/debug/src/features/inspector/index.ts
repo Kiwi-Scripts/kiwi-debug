@@ -202,7 +202,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
         if ( !pc ) {
             return;
         }
-        pc.setTitle( target ? describeElement( target ) : 'Inspector' );
+        pc.setTitle( target ? `Inspector · ${describeElement( target )}` : 'Inspector' );
         const nodes: Node[] = [];
         if ( panel()?.previewing ) {
             nodes.push( button( 'Pin', 'Pin: keep the inspector open', () => panel()?.open(), { mini: true } ) );

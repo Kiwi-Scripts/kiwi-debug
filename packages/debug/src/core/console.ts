@@ -1,8 +1,13 @@
+import { Unreachable } from './expressions';
+
 /** The prefix of everything the overlay writes to the console. */
 export const LOG_PREFIX = '[kiwi-debug]';
 
 /** A labelled value for {@link logGroup}; entries whose value is `undefined` are left out. */
 export type LogEntry = readonly [label: string, value: unknown];
+
+/** Whether logging a value tells more than its text does: objects, arrays and functions. A string or a number is just what is shown. */
+export const isLoggable = ( value: unknown ): boolean => ( ( typeof value === 'object' && value !== null ) || typeof value === 'function' ) && !( value instanceof Unreachable );
 
 const HEADING_STYLE = 'color:#7cc05b;font-weight:bold';
 

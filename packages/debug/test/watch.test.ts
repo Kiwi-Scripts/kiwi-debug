@@ -207,6 +207,18 @@ describe( 'watch feature', () => {
         expect( panelEl().textContent ).toContain( 'title = "Hello"' );
     } );
 
+    it( 'shows the whole unit in a panel of its own, not in the list', () => {
+        page();
+        dispose = mountOverlay( options() );
+        trackFirstUnit( 'card' );
+        panelEl().querySelector<HTMLButtonElement>( '.kd-action-side' )!.click();
+        const unit = shadow().querySelector<HTMLElement>( '.kp-panel[data-panel="unit"]' )!;
+        expect( unit.classList.contains( 'kp-open' ) ).toBe( true );
+        expect( unit.textContent ).toContain( 'Unit Card' );
+        expect( unit.textContent ).toContain( 'title = "Hello"' );
+        expect( panelEl().textContent ).not.toContain( 'Unit Card' );
+    } );
+
     it( 'shows a hint while nothing is tracked', () => {
         page();
         dispose = mountOverlay( options() );

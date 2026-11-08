@@ -19,6 +19,16 @@ export interface InspectArgs {
     expression: string;
 }
 
+/** How many earlier inputs the panel remembers. */
+export const HISTORY_SIZE = 20;
+
+/** An earlier input: the path, and what it started at. */
+interface HistoryEntry {
+    text: string;
+    unit?: WeakRef<Unit>;
+    element?: WeakRef<Element>;
+}
+
 const isArgs = ( value: unknown ): value is InspectArgs => typeof value === 'object' && value !== null && typeof ( value as InspectArgs ).expression === 'string';
 
 /**
@@ -27,6 +37,8 @@ const isArgs = ( value: unknown ): value is InspectArgs => typeof value === 'obj
  */
 export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy: HeldBy, onTracked: () => void ): PanelDefinition {
     const { adapter } = ctx;
+    /** Kept across openings of the panel. */
+    const history: HistoryEntry[] = [];
     return {
         id: 'inspect',
         title: 'Inspect',
@@ -47,6 +59,11 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
             input.className = 'kp-input kd-inspect-input';
             input.spellcheck = false;
             input.placeholder = 'path, e.g. items[0].name';
+            /** Where in `history` the input is; `history.length` for an input that is not part of it (yet). */
+            let at = 0;
+            const back = button( '‹', 'Back to the previous input', () => go( -1 ), { mini: true } );
+            const forward = button( '›', 'Forward to the next input', () => go( 1 ), { mini: true } );
+            const bar = div( 'kd-inspect-bar' );
             const track = button( 'Track', 'Keep this path in the watch list', () => toggleTrack(), { mini: true } );
             const pin = button( 'Pin', 'Keep this object as a reference ($n) that paths can start at', () => pinValue(), { mini: true } );
             const log = button( 'Log', 'Log the value to the console', () => logGroup( input.value, [['value', current.value], ['copy', safe( () => copyValue( current.value ) )]] ), { mini: true } );
@@ -55,15 +72,74 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
             const message = div( 'kd-inspect-msg' );
             const out = div( 'kd-inspect-out' );
             const held = div( 'kd-inspect-held' );
-            root.append( input, controls, message, out, held );
+            bar.append( back, forward, input );
+            root.append( bar, controls, message, out, held );
 
-            const setText = ( text: string ): void => {
-                input.value = text;
+            const same = ( a: HistoryEntry, text: string ): boolean => a.text === text && a.unit?.deref() === unit;
+            const currentEntry = (): HistoryEntry => ( { text: input.value, unit: unit && new WeakRef( unit ), element: element ? new WeakRef( element ) : undefined } );
+
+            /** Keeps the current input in the history, unless it is empty or the last one already. */
+            const remember = (): void => {
+                const last = history[history.length - 1];
+                if ( input.value.trim() && !( last && same( last, input.value ) ) ) {
+                    history.push( currentEntry() );
+                    if ( history.length > HISTORY_SIZE ) {
+                        history.shift();
+                    }
+                }
+                at = history.length;
+            };
+
+            const showEntry = ( entry: HistoryEntry ): void => {
+                unit = entry.unit?.deref();
+                element = entry.element?.deref() ?? null;
+                input.value = entry.text;
+                setTitle();
                 update( true );
             };
 
+            /** Back and forward through the history, like a browser: an input that is not in it yet is kept, so that forward comes back to it. */
+            function go( step: -1 | 1 ): void {
+                if ( at >= history.length ) {
+                    remember();
+                    const last = history[history.length - 1];
+                    at = last && same( last, input.value ) ? history.length - 1 : history.length;
+                }
+                const next = at + step;
+                if ( next < 0 || next >= history.length ) {
+                    return;
+                }
+                at = next;
+                showEntry( history[at] );
+            }
+
+            const updateNav = (): void => {
+                const last = history[history.length - 1];
+                const covered = last && same( last, input.value ) ? 1 : 0;
+                back.disabled = at >= history.length ? history.length <= covered : at <= 0;
+                forward.disabled = at >= history.length - 1;
+            };
+
+            /** The input is edited (by hand or by a click in the tree): it is not an entry of the history any more. */
+            const setText = ( text: string ): void => {
+                input.value = text;
+                at = history.length;
+                update( true );
+            };
+
+            /** The input is replaced as a whole: what was there is kept. */
+            const replaceInput = ( text: string ): void => {
+                remember();
+                setText( text );
+            };
+
+            const setTitle = (): void => pc.setTitle( `Inspect · ${unit ? adapter.units.describe( unit ).name : 'reference'}` );
+
             const toggleTrack = (): void => {
                 const on = model.toggleExpression( unit ? { unit, element } : undefined, input.value );
+                if ( on === true ) {
+                    remember();
+                }
                 if ( on !== undefined ) {
                     onTracked();
                     update( true );
@@ -77,7 +153,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
                 const name = unit ? adapter.units.describe( unit ).name : '';
                 const created = model.pinValue( unit ? { unit, element } : undefined, input.value, current.value, `${name ? `${name}.` : ''}${model.reader.canonical( input.value ) ?? input.value}` );
                 onTracked();
-                setText( created.id );
+                replaceInput( created.id );
             };
 
             /** A name in the tree was clicked: the path continues there. */
@@ -99,6 +175,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
             };
 
             function update( force: boolean ): void {
+                updateNav();
                 const text = input.value;
                 const parsed = model.reader.parse( text );
                 message.classList.toggle( 'kd-error', !parsed.ok );
@@ -137,20 +214,22 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy
                 out.replaceChildren( renderValueTree( describeValue( evaluation.value, adapter.reactivity ), { state, onPick: pick, highlight: ctx.highlightHover } ) );
             }
 
-            input.oninput = () => update( true );
+            input.oninput = () => {
+                at = history.length;
+                update( true );
+            };
 
             return {
                 content: root,
                 onShow( args ) {
                     if ( isArgs( args ) ) {
+                        remember();
                         unit = args.unit;
                         element = args.element ?? null;
                         state.open.clear();
                         state.limits.clear();
-                        const name = unit ? adapter.units.describe( unit ).name : 'reference';
-                        pc.setTitle( `Inspect · ${name}` );
-                        input.value = args.expression;
-                        update( true );
+                        setTitle();
+                        setText( args.expression );
                         input.focus();
                     } else if ( !input.value ) {
                         // Restored from the saved state of an earlier page load: there is nothing to inspect, so there is nothing to show.

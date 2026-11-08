@@ -4,6 +4,7 @@ import { button, div, type Overlay } from '@kiwi-js/panels';
 import type { GuardedAdapter } from '../adapter/types';
 import { createActionRegistry } from './actions';
 import { registerBuiltinActions } from './builtin-actions';
+import { DEFAULT_PREVIEW_KEYS, setPreviewKeys } from './format';
 import { createServices, InspectedElement } from './services';
 import type { DebugContext, EffectiveOptions } from './types';
 import { createUnitReaders } from './units';
@@ -21,6 +22,7 @@ export interface ContextHandle {
 
 /** Builds the context features work with: unit readers on the guarded adapter, services, and the shared hover highlight. */
 export function createDebugContext( { overlay, adapter, options }: ContextInit ): ContextHandle {
+    setPreviewKeys( options.previewKeys ?? DEFAULT_PREVIEW_KEYS );
     const readers = createUnitReaders( adapter, el => overlay.inOverlay( el ) );
     const services = createServices();
     const actions = createActionRegistry( options.actions );

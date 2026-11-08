@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { copyValue, logGroup, preview, stringifyCopy } from '../src/core';
 import { safe, safeOr } from '../src/core/safe';
+import { isLoggable } from '../src/core/console';
+import { DEFAULT_PREVIEW_KEYS, setPreviewKeys } from '../src/core/format';
 
 class Service {
     a = 1;
@@ -115,5 +117,40 @@ describe( 'logGroup', () => {
         expect( group.mock.calls[0][0] ).toContain( '[kiwi-debug] Title' );
         expect( log.mock.calls ).toEqual( [['[kiwi-debug] a', 1], ['[kiwi-debug] b', 2]] );
         expect( end ).toHaveBeenCalledTimes( 1 );
+    } );
+} );
+
+describe( 'preview of objects', () => {
+    afterEach( () => setPreviewKeys( DEFAULT_PREVIEW_KEYS ) );
+
+    it( 'shows id and name, and says when there is more', () => {
+        expect( preview( { id: 3, name: 'Ada', age: 30 } ) ).toBe( '{ id: 3, name: "Ada", … }' );
+        expect( preview( { id: 3 } ) ).toBe( '{ id: 3 }' );
+        expect( preview( { other: 1 } ) ).toBe( '{…}' );
+    } );
+
+    it( 'puts the class name in front, and keeps strings short', () => {
+        class Todo { id = 1; title = 'x'.repeat( 60 ); done = false; }
+        expect( preview( new Todo() ) ).toMatch( /^Todo { id: 1, title: "x{23}…, … }$/ );
+    } );
+
+    it( 'does not run getters or show nested values', () => {
+        const getter = vi.fn( () => 'g' );
+        expect( preview( { get name() { return getter(); }, id: { deep: 1 } } ) ).toBe( '{…}' );
+        expect( getter ).not.toHaveBeenCalled();
+    } );
+
+    it( 'uses the keys that are set, and can be turned off', () => {
+        setPreviewKeys( ['label'] );
+        expect( preview( { id: 1, label: 'L' } ) ).toBe( '{ label: "L", … }' );
+        setPreviewKeys( [] );
+        expect( preview( { id: 1 } ) ).toBe( '{…}' );
+    } );
+} );
+
+describe( 'isLoggable', () => {
+    it( 'is true for objects, arrays and functions only', () => {
+        expect( [{}, [], () => 1, new Map()].map( isLoggable ) ).toEqual( [true, true, true, true] );
+        expect( ['a', 1, true, null, undefined, 5n].map( isLoggable ) ).toEqual( [false, false, false, false, false, false] );
     } );
 } );

@@ -75,7 +75,7 @@ describe( 'renderValueTree', () => {
         expect( tree.textContent ).not.toContain( 'user' );
         tree.querySelector<HTMLElement>( '.kd-node-row' )!.click();
         expect( tree.textContent ).toContain( 'user' );
-        expect( tree.textContent ).not.toContain( 'name' );
+        expect( tree.textContent ).not.toContain( 'tags' );
         tree.querySelectorAll<HTMLElement>( '.kd-node-row' )[1].click();
         expect( tree.textContent ).toContain( 'name: "Ann"' );
     } );

@@ -9,6 +9,41 @@ export const COPY_MAX_OBJECTS = 2_000;
 
 const ELLIPSIS = '…';
 
+export const DEFAULT_PREVIEW_KEYS: readonly string[] = ['id', 'name', 'key', 'title'];
+const PREVIEW_PAIRS = 3;
+const PREVIEW_VALUE = 24;
+
+let previewKeys: readonly string[] = DEFAULT_PREVIEW_KEYS;
+
+/** The properties an object's preview shows when it has them (`DebugOptions.previewKeys`). */
+export function setPreviewKeys( keys: readonly string[] ): void {
+    previewKeys = keys;
+}
+
+/** `{ id: 3, name: "Ada", … }` for an object that has some of the preview keys as plain values; `undefined` if it has none. */
+function previewProps( value: object, prefix: string | undefined ): string | undefined {
+    if ( !previewKeys.length ) {
+        return undefined;
+    }
+    const own = Object.keys( value );
+    const shown: string[] = [];
+    for ( const key of previewKeys ) {
+        if ( shown.length >= PREVIEW_PAIRS || !own.includes( key ) || Object.getOwnPropertyDescriptor( value, key )?.get ) {
+            continue;
+        }
+        const v = ( value as Record<string, unknown> )[key];
+        if ( typeof v === 'string' ) {
+            shown.push( `${key}: ${cut( JSON.stringify( v ), PREVIEW_VALUE )}` );
+        } else if ( typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint' ) {
+            shown.push( `${key}: ${String( v )}${typeof v === 'bigint' ? 'n' : ''}` );
+        }
+    }
+    if ( !shown.length ) {
+        return undefined;
+    }
+    return `${prefix ? `${prefix} ` : ''}{ ${shown.join( ', ' )}${own.length > shown.length ? ', …' : ''} }`;
+}
+
 const cut = ( text: string, max: number ): string => text.length > max ? text.slice( 0, max ) + ELLIPSIS : text;
 
 function constructorName( value: object ): string | undefined {
@@ -55,7 +90,7 @@ export function preview( value: unknown, reactivity?: NodeOf, depth = 0 ): strin
         if ( value instanceof Date ) {
             return Number.isNaN( value.getTime() ) ? 'Invalid Date' : value.toISOString();
         }
-        return constructorName( value ) ?? '{…}';
+        return previewProps( value, constructorName( value ) ) ?? constructorName( value ) ?? '{…}';
     } catch {
         return '?';
     }

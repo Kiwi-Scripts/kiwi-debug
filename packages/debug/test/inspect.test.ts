@@ -239,6 +239,9 @@ describe( 'the inspect panel', () => {
         expect( isOpen( 'watch' ) ).toBe( true );
         expect( panelEl( 'watch' ).textContent ).toContain( 'References' );
         expect( panelEl( 'watch' ).textContent ).toContain( 'Card.items[1]' );
+        // The value stands for the pin in the title: no "$1 =" again, and the preview shows the name.
+        expect( panelEl( 'watch' ).textContent ).not.toContain( '$1 =' );
+        expect( panelEl( 'watch' ).textContent ).toContain( '{ name: "b", … }' );
         type( '$1.name' );
         expect( panelEl( 'inspect' ).textContent ).toContain( '"b"' );
         button( 'Track' ).click();
@@ -255,6 +258,54 @@ describe( 'the inspect panel', () => {
         button( 'Pin' ).click();
         panelEl( 'watch' ).querySelector<HTMLButtonElement>( '.kd-pin summary button' )!.click();
         expect( panelEl( 'watch' ).textContent ).not.toContain( 'References' );
+    } );
+
+    const nav = ( label: string ): HTMLButtonElement => Array.from( panelEl( 'inspect' ).querySelectorAll<HTMLButtonElement>( '.kd-inspect-bar button' ) ).find( b => b.textContent === label )!;
+
+    it( 'remembers what the input is replaced by, and walks back and forward through it', () => {
+        inspectRow( 'items' );
+        expect( [nav( '‹' ).disabled, nav( '›' ).disabled] ).toEqual( [true, true] );
+        type( 'items[1]' );
+        button( 'Pin' ).click();
+        expect( input().value ).toBe( '$1' );
+        expect( nav( '‹' ).disabled ).toBe( false );
+        nav( '‹' ).click();
+        expect( input().value ).toBe( 'items[1]' );
+        expect( nav( '‹' ).disabled ).toBe( true );
+        nav( '›' ).click();
+        expect( input().value ).toBe( '$1' );
+        expect( nav( '›' ).disabled ).toBe( true );
+    } );
+
+    it( 'remembers a path that is tracked, and the input of an earlier opening', () => {
+        inspectRow( 'items' );
+        type( 'items[0].name' );
+        button( 'Track' ).click();
+        type( 'items[1].name' );
+        nav( '‹' ).click();
+        expect( input().value ).toBe( 'items[0].name' );
+        // Opened again from another row: the input that was there is kept.
+        const row = Array.from( shadow().querySelectorAll( '.kd-unit .kd-row' ) ).find( r => r.querySelector( '.kd-name' )?.textContent === 'plain' )!;
+        row.querySelector<HTMLButtonElement>( '.kd-action-inspect' )!.click();
+        expect( input().value ).toBe( 'plain' );
+        nav( '‹' ).click();
+        expect( input().value ).toBe( 'items[0].name' );
+    } );
+
+    it( 'keeps at most 20 entries', () => {
+        inspectRow( 'items' );
+        for ( let i = 0; i < 30; i++ ) {
+            type( `items[${i}]` );
+            button( 'Track' ).click();
+            button( 'Track' ).click();
+        }
+        let steps = 0;
+        while ( !nav( '‹' ).disabled && steps < 100 ) {
+            nav( '‹' ).click();
+            steps++;
+        }
+        expect( steps ).toBeLessThanOrEqual( 20 );
+        expect( steps ).toBeGreaterThan( 10 );
     } );
 
     it( 'closes on Escape', () => {

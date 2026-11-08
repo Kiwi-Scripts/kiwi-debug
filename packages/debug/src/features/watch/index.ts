@@ -1,15 +1,17 @@
 import { keepState } from '@kiwi-js/dom';
 import {
-    badge, button, div, memoryStorage, placeBox, renderDetails, renderSection, sessionStorageAdapter, span,
+    badge, button, div, link, memoryStorage, placeBox, renderDetails, renderSection, sessionStorageAdapter, span,
     type HotkeyBinding, type PanelContext, type PanelDefinition, type PanelHandle, type StorageAdapter
 } from '@kiwi-js/panels';
 
 import { createChangeTracker, groupKey, rowKey } from '../../core/change-tracker';
 import { createDirectiveView } from '../../core/directive-view';
 import { ICONS } from '../../core/icons';
-import { Tracking, type TrackTarget } from '../../core/services';
+import { Tracking } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
 import { createHeldBy } from './held-by';
+import { createUnitPanel } from './unit-panel';
+import { referenceLabel } from '../../core/references';
 import { createInspectPanel } from './inspect-panel';
 import { createWatchModel, type WatchEntry } from './model';
 import { EXPRESSIONS } from './paths';
@@ -35,14 +37,17 @@ function setup( ctx: DebugContext ): FeatureInstance {
         palette: ctx.options.trackedColors
     } );
     const heldBy = createHeldBy( ctx );
-    const referencesOf = ( pin: Pin ) => heldBy.of( model.pins.resolve( pin.id ) );
+    /** Where else a pin's object is held: not the place it was found at, which the title of the pin says already. */
+    const referencesOf = ( pin: Pin ) => {
+        const object = model.pins.resolve( pin.id );
+        const origin = pin.source?.unit?.deref();
+        return heldBy.of( object ).filter( ref => origin ? !( ref.unit === origin && ref.member === pin.source?.expression ) : referenceLabel( ref ) !== pin.origin );
+    };
     const panel = (): PanelHandle | undefined => overlay.panels.get( 'watch' );
 
     let pc: PanelContext | undefined;
     let root: HTMLElement | undefined;
     let signature = '';
-    /** The unit shown in full below the list, with a tracking icon on every member. */
-    let side: TrackTarget | null = null;
     const outlines = new Map<Element, HTMLElement>();
 
     const visible = (): boolean => panel()?.state === 'open' && !panel()!.collapsed;
@@ -64,7 +69,9 @@ function setup( ctx: DebugContext ): FeatureInstance {
                 overlay.root.append( box );
                 outlines.set( el, box );
             }
-            box.style.borderColor = model.colorOf( el );
+            const color = model.colorOf( el );
+            box.style.borderColor = color;
+            ( box.firstElementChild as HTMLElement ).style.background = color;
             box.firstElementChild!.textContent = String( model.indexOf( el ) );
             placeBox( box, el );
         }
@@ -162,10 +169,17 @@ function setup( ctx: DebugContext ): FeatureInstance {
     const renderPin = ( pin: Pin, snapshot: ReturnType<typeof changes.snapshot> ): HTMLElement => {
         const gone = !model.pins.resolve( pin.id );
         const source = pin.source?.element?.deref();
-        const head: ( Node | string )[] = [span( 'kd-index', pin.id ), span( 'kp-muted', pin.origin )];
-        if ( source?.isConnected ) {
-            head[1] = span( 'kp-muted', pin.origin, 'Found through this path; the element is highlighted while hovering' );
+        const sourceUnit = pin.source?.unit?.deref();
+        const sourceTarget = sourceUnit && source ? { unit: sourceUnit, element: source } : undefined;
+        const expression = pin.source?.expression;
+        // Where it was found; the path can be tracked from there, and the element is highlighted while hovering.
+        const origin = sourceTarget && expression
+            ? link( pin.origin, 'Track this value where it was found', () => void model.toggleExpression( sourceTarget, expression ) )
+            : span( 'kp-muted', pin.origin );
+        if ( sourceTarget && expression && model.isExpressionTracked( sourceUnit, expression ) ) {
+            origin.classList.add( 'kd-origin-on' );
         }
+        const head: ( Node | string )[] = [span( 'kd-pin-id', pin.id ), origin];
         if ( gone ) {
             head.push( badge( 'gone' ) );
         }
@@ -183,31 +197,18 @@ function setup( ctx: DebugContext ): FeatureInstance {
                 if ( text !== pin.id ) {
                     row.append( button( '◉', 'Stop tracking this path', () => model.toggleExpression( undefined, text ), { mini: true, on: true } ) );
                 }
-                const value = span( 'kd-value', snapshot.get( key )?.text ?? '' );
-                row.append( span( `kd-name kd-${EXPRESSIONS}`, text ), ' = ', value,
+                const value = view.valueCell( key, text, () => model.reader.read( undefined, text ), snapshot.get( key )?.text );
+                // The value of the pin itself needs no name: it is the title above.
+                row.append( ...( text === pin.id ? [] : [span( `kd-name kd-${EXPRESSIONS}`, text ), ' = '] ), value,
                     button( '⌕', 'Inspect this path', () => overlay.panels.open( 'inspect', { expression: text } ), { mini: true } ) );
                 changes.markRow( row, key );
                 row.onmouseenter = () => changes.dismiss( key );
                 return row;
-            } ), ...( held.length ? [heldBy.render( held )!] : [] )]
+            } ), ...( held.length ? [heldBy.render( held, 'other refs' )!] : [] )]
         } );
         details.onmouseenter = () => source?.isConnected && ctx.highlightHover( source );
         details.onmouseleave = () => ctx.highlightHover( null );
         return details;
-    };
-
-    const renderSide = (): HTMLElement | undefined => {
-        if ( !side ) {
-            return undefined;
-        }
-        const target = side;
-        const name = adapter.units.describe( target.unit ).name;
-        const close = button( '✕', 'Close this view', () => {
-            side = null;
-            signature = '';
-            refresh();
-        }, { mini: true } );
-        return renderSection( `Unit ${name}`, close, ...view.rowGroups( target, ctx.rowsOf( target.unit ), { surface: 'side', scope: `side:${name}`, changes, open: () => true } ) );
     };
 
     const draw = ( snapshot: ReturnType<typeof changes.snapshot> ): void => {
@@ -222,10 +223,6 @@ function setup( ctx: DebugContext ): FeatureInstance {
             model.entries.forEach( entry => root!.append( renderEntry( entry, snapshot ) ) );
             if ( model.pins.list().length ) {
                 root!.append( renderSection( 'References', ...model.pins.list().map( pin => renderPin( pin, snapshot ) ) ) );
-            }
-            const sideView = renderSide();
-            if ( sideView ) {
-                root!.append( sideView );
             }
         } );
     };
@@ -253,7 +250,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             ...model.entries.map( e => `${e.id}${e.all ? '*' : ''}${e.gone ? 'gone' : ''}${model.colorOf( e.element )}${model.isOutlined( e.element )}` ),
             ...model.pins.list().map( p => `${p.id}${pinRows( p ).join( '+' )}${model.pins.resolve( p.id ) ? '' : 'gone'}${referencesOf( p ).map( r => `${r.name}.${r.member ?? ''}` ).join( ',' )}` )
         ].join( ',' );
-        const next = `${structure}\u0003${side ? 'side' : ''}\u0003${changes.signatureOf( snapshot )}`;
+        const next = `${structure}\u0003${changes.signatureOf( snapshot )}`;
         if ( next === signature ) {
             return;
         }
@@ -315,12 +312,8 @@ function setup( ctx: DebugContext ): FeatureInstance {
             run: c => c.target.element && model.toggleOutline( c.target.element )
         } ),
         ctx.actions.register( 'unit', {
-            id: 'side', icon: '⧉', surfaces: ['watch'], title: 'Show the whole unit below',
-            run: c => {
-                side = c.target;
-                signature = '';
-                refresh();
-            }
+            id: 'side', icon: '⧉', surfaces: ['watch'], title: 'Show the whole unit in a panel next to this one',
+            run: c => overlay.panels.open( 'unit', c.target )
         } ),
         ctx.actions.register( 'unit', {
             id: 'remove', icon: '✕', surfaces: ['watch'], title: 'Stop tracking',
@@ -358,7 +351,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
 
     return {
         panel: definition,
-        panels: [inspectPanel],
+        panels: [inspectPanel, createUnitPanel( ctx, view )],
         hotkeys,
         // Entries find their units again, and outlines follow their elements, while the list is not shown.
         refresh: () => {

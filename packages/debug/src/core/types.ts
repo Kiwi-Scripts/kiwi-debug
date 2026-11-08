@@ -30,6 +30,11 @@ export interface DebugOptions {
     actions?: Partial<ActionLists>;
     /** Whether arrays and objects in value rows can be opened in place. Default: 'summary', one line per value. */
     valueDetail?: 'summary' | 'detail';
+    /**
+     * Properties that an object's one-line preview shows when it has them, so that `{…}` says more: `{ id: 3, name: "Ada", … }`.
+     * Default: id, name, key, title. An empty list turns it off.
+     */
+    previewKeys?: string[];
 }
 
 /** The options after merging the layers and applying defaults. */
@@ -43,6 +48,7 @@ export interface EffectiveOptions {
     overlay: NonNullable<DebugOptions['overlay']>;
     actions: ActionLists;
     valueDetail: 'summary' | 'detail';
+    previewKeys?: readonly string[];
 }
 
 export interface FeatureInstance {

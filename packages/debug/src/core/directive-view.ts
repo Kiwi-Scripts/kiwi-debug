@@ -4,7 +4,7 @@ import type { Unit } from '../adapter/types';
 import { renderActions, type ActionContext } from './actions';
 import type { ChangeTracker, Snapshot } from './change-tracker';
 import { groupKey, rowKey } from './change-tracker';
-import { logGroup } from './console';
+import { isLoggable, logGroup } from './console';
 import { copyValue, preview } from './format';
 import { createValueViewState, renderValueTree, type ValueViewState } from './value-view';
 import { describeValue } from './values';
@@ -40,6 +40,11 @@ export interface DirectiveView {
     /** `renders× / checks` of a counted component; `null` otherwise. */
     profileBadge( unit: Unit ): HTMLElement | null;
     rowGroups( target: TrackTarget, rows: TrackedRow[], options: RowGroupsOptions ): HTMLElement[];
+    /**
+     * The value of a row: its one-line text, which logs complex values when clicked, or an opening tree with `valueDetail: 'detail'`.
+     * `key` identifies the row for the opened nodes that are kept across redraws.
+     */
+    valueCell( key: string, label: string, read: () => unknown, text?: string ): HTMLElement;
 }
 
 const CATEGORY_ORDER = ['inputs', 'outputs', 'properties'];
@@ -67,7 +72,29 @@ export function createDirectiveView( ctx: DebugContext ): DirectiveView {
         ] );
     };
 
+    const valueCell = ( key: string, label: string, read: () => unknown, known?: string ): HTMLElement => {
+        const current = safe( read );
+        const value = span( 'kd-value', known ?? preview( current, adapter.reactivity ) );
+        if ( isLoggable( current ) ) {
+            value.classList.add( 'kd-log' );
+            value.title = 'Click to log the value';
+            value.onclick = () => logGroup( label, [['value', safe( read )], ['copy', safe( () => copyValue( read() ) )]] );
+        }
+        if ( detailed ) {
+            const node = describeValue( current, adapter.reactivity );
+            if ( node.expandable ) {
+                let state = treeStates.get( key );
+                if ( !state ) {
+                    treeStates.set( key, state = createValueViewState() );
+                }
+                return renderValueTree( node, { state, highlight: ctx.highlightHover } );
+            }
+        }
+        return value;
+    };
+
     const view: DirectiveView = {
+        valueCell,
         nameLink( target ) {
             const { name } = adapter.units.describe( target.unit );
             const el = link( name, 'Click to log; hold the modifier and click to track', () => undefined );
@@ -109,22 +136,10 @@ export function createDirectiveView( ctx: DebugContext ): DirectiveView {
                 const renderRow = ( row: TrackedRow ): HTMLElement => {
                     const key = rowKey( scope, row.category, row.name );
                     const reading = options.snapshot?.get( key );
-                    const text = reading?.text ?? preview( safe( () => row.read() ), adapter.reactivity );
                     const el = div( 'kp-row kd-row' );
                     const actions = ctx.actions.resolve( 'row', surface );
                     const c: ActionContext = { ctx, surface, target, row };
-                    let value: HTMLElement = span( 'kd-value', text, 'Click to log the value' );
-                    value.onclick = () => logGroup( `${row.label ?? row.name}`, [['value', safe( () => row.read() )], ['copy', safe( () => copyValue( row.read() ) )]] );
-                    if ( detailed ) {
-                        const node = describeValue( safe( () => row.read() ), adapter.reactivity );
-                        if ( node.expandable ) {
-                            let state = treeStates.get( key );
-                            if ( !state ) {
-                                treeStates.set( key, state = createValueViewState() );
-                            }
-                            value = renderValueTree( node, { state, highlight: ctx.highlightHover } );
-                        }
-                    }
+                    const value = valueCell( key, `${row.label ?? row.name}`, row.read, reading?.text );
                     el.append(
                         ...renderActions( actions, 'leading', c ),
                         span( `kd-name kd-${row.category}`, row.label && row.label !== row.name ? `${row.label} (${row.name})` : row.name ),

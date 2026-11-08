@@ -1,7 +1,7 @@
 import { span } from '@kiwi-js/panels';
 
 import type { ReactivityApi } from '../adapter/types';
-import { logGroup } from './console';
+import { isLoggable, logGroup } from './console';
 import { copyValue, preview, type Copy } from './format';
 import { safe } from './safe';
 
@@ -185,7 +185,12 @@ export function createChangeTracker( reactivity?: Pick<ReactivityApi, 'nodeOf'>,
             el.classList.toggle( 'kd-flash', flashing.has( key ) );
             if ( note ) {
                 const label = span( 'kp-muted kd-was', `(was ${note.was})`, 'Click to log the previous value' );
-                label.onclick = () => logGroup( 'Previous value', [['was', note.previous ?? note.was]] );
+                if ( isLoggable( note.previous ) ) {
+                    label.classList.add( 'kd-log' );
+                    label.onclick = () => logGroup( 'Previous value', [['was', note.previous]] );
+                } else {
+                    label.title = '';
+                }
                 el.append( ' ', label );
             }
         },

@@ -16,9 +16,8 @@
 .kd-name.kd-outputs { color: var(--kp-info); }
 .kd-name.kd-properties { color: #d66ad6; }
 .kd-name.kd-form { color: #e5c07b; }
-.kd-value { cursor: pointer; }
-.kd-value:hover { text-decoration: underline; }
-.kd-was { cursor: pointer; }
+.kd-log { cursor: pointer; }
+.kd-log:hover { text-decoration: underline; }
 .kd-changed .kd-value { color: var(--kp-accent); }
 .kd-flash { animation: kd-flash 1s ease-out; }
 @keyframes kd-flash { from { background: color-mix(in srgb, var(--kp-accent) 45%, transparent); } to { background: transparent; } }
@@ -33,7 +32,9 @@
 .kd-index { display: inline-block; min-width: 14px; padding: 0 3px; border-radius: 3px; color: #000; text-align: center; font-size: 10px; font-weight: bold; }
 .kd-color { width: 18px; height: 16px; padding: 0; border: none; background: none; cursor: pointer; }
 .kd-outline { background: transparent; border-style: dashed; }
-.kd-outline-index { position: absolute; top: -1px; left: -1px; padding: 0 3px; background: var(--kp-bg); color: var(--kp-fg); font-size: 10px; }
+.kd-outline-index { position: absolute; top: -2px; left: -2px; min-width: 14px; padding: 1px 4px; border-radius: 2px 0 3px 0; color: #000; text-align: center; font-size: 11px; font-weight: bold; line-height: 1.2; }
+.kd-pin-id { display: inline-block; padding: 0 4px; border-radius: 3px; background: var(--kp-accent); color: var(--kp-accent-fg); font-size: 10px; font-weight: bold; }
+.kd-origin-on { color: var(--kp-accent); font-weight: bold; }
 
 /* Search */
 .kd-search-input { width: 100%; box-sizing: border-box; margin-bottom: 6px; }
@@ -49,7 +50,9 @@
 .kd-circular, .kd-getter { color: var(--kp-muted); }
 
 /* Inspect panel */
-.kd-inspect-input { width: 100%; box-sizing: border-box; font-family: inherit; }
+.kd-inspect-bar { display: flex; gap: 4px; align-items: center; }
+.kd-inspect-input { flex: 1; min-width: 0; box-sizing: border-box; font-family: inherit; }
+.kd-inspect-bar .kp-btn:disabled { opacity: 0.35; }
 .kd-inspect .kp-row { margin-top: 4px; }
 .kd-inspect-msg { margin-top: 6px; min-height: 1em; color: var(--kp-muted); }
 .kd-inspect-msg.kd-error, .kd-error { color: #f44747; }

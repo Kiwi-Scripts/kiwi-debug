@@ -1,6 +1,6 @@
 import { div, span } from '@kiwi-js/panels';
 
-import { logGroup } from './console';
+import { isLoggable, logGroup } from './console';
 import { copyValue } from './format';
 import { formatSegments, type Segment } from './expressions';
 import { safe } from './safe';
@@ -47,11 +47,15 @@ export function renderValueTree( root: ValueNode, options: ValueViewOptions = {}
             }
             row.append( key, ': ' );
         }
-        const text = span( `kd-value kd-${node.kind}`, node.text, 'Click to log the value' );
-        text.onclick = ev => {
-            ev.stopPropagation();
-            logGroup( node.key || 'value', [['value', node.value], ['copy', safe( () => copyValue( node.value ) )]] );
-        };
+        const text = span( `kd-value kd-${node.kind}`, node.text );
+        if ( isLoggable( node.value ) ) {
+            text.classList.add( 'kd-log' );
+            text.title = 'Click to log the value';
+            text.onclick = ev => {
+                ev.stopPropagation();
+                logGroup( node.key || 'value', [['value', node.value], ['copy', safe( () => copyValue( node.value ) )]] );
+            };
+        }
         row.append( text );
         if ( node.kind === 'element' && node.value instanceof Element ) {
             const el = node.value;
