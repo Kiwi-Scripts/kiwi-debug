@@ -47,3 +47,10 @@
 .kd-chev { display: inline-block; width: 10px; color: var(--kp-muted); }
 .kd-more { cursor: pointer; }
 .kd-circular, .kd-getter { color: var(--kp-muted); }
+
+/* Inspect panel */
+.kd-inspect-input { width: 100%; box-sizing: border-box; font-family: inherit; }
+.kd-inspect .kp-row { margin-top: 4px; }
+.kd-inspect-msg { margin-top: 6px; min-height: 1em; color: var(--kp-muted); }
+.kd-inspect-msg.kd-error, .kd-error { color: #f44747; }
+.kd-inspect-out { margin-top: 6px; }

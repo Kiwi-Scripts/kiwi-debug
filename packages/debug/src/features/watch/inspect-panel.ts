@@ -30,8 +30,9 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
         id: 'inspect',
         title: 'Inspect',
         tray: false,
-        size: { width: 380 },
-        defaultPosition: 'bottom-left',
+        size: { width: 420, height: 300 },
+        // Bottom left, with room for about 340 px: the content does not exist yet when the position is worked out.
+        defaultPosition: () => ( { left: 16, top: Math.max( 8, window.innerHeight - 340 ) } ),
         className: 'kd-inspect-panel',
         mount( pc ) {
             let unit: Unit | undefined;
@@ -136,6 +137,9 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                         input.value = args.expression;
                         update( true );
                         input.focus();
+                    } else if ( !input.value ) {
+                        // Restored from the saved state of an earlier page load: there is nothing to inspect, so there is nothing to show.
+                        queueMicrotask( () => pc.panel.close() );
                     }
                 },
                 refresh: () => update( false ),
