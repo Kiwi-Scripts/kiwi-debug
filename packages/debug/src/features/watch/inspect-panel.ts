@@ -8,6 +8,7 @@ import { safe } from '../../core/safe';
 import type { DebugContext } from '../../core/types';
 import { createValueViewState, renderValueTree } from '../../core/value-view';
 import { describeValue } from '../../core/values';
+import type { HeldBy } from './held-by';
 import type { WatchModel } from './model';
 
 /** What `overlay.panels.open( 'inspect', args )` takes. */
@@ -24,7 +25,7 @@ const isArgs = ( value: unknown ): value is InspectArgs => typeof value === 'obj
  * The small panel for looking deeper into one value: a path input, and the live, detailed value it leads to. A name in the tree
  * extends the path; `Track` keeps the path in the watch list; `Pin` makes the object a reference that paths can start at.
  */
-export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTracked: () => void ): PanelDefinition {
+export function createInspectPanel( ctx: DebugContext, model: WatchModel, heldBy: HeldBy, onTracked: () => void ): PanelDefinition {
     const { adapter } = ctx;
     return {
         id: 'inspect',
@@ -53,7 +54,8 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
             controls.append( track, pin, log );
             const message = div( 'kd-inspect-msg' );
             const out = div( 'kd-inspect-out' );
-            root.append( input, controls, message, out );
+            const held = div( 'kd-inspect-held' );
+            root.append( input, controls, message, out, held );
 
             const setText = ( text: string ): void => {
                 input.value = text;
@@ -73,7 +75,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                     return;
                 }
                 const name = unit ? adapter.units.describe( unit ).name : '';
-                const created = model.pins.pin( current.value, `${name ? `${name}.` : ''}${model.reader.canonical( input.value ) ?? input.value}` );
+                const created = model.pinValue( unit ? { unit, element } : undefined, input.value, current.value, `${name ? `${name}.` : ''}${model.reader.canonical( input.value ) ?? input.value}` );
                 onTracked();
                 setText( created.id );
             };
@@ -86,6 +88,16 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                 }
             };
 
+            /** Where else the value is held, if it is an object: the same service in several units, say. */
+            let heldKey = '';
+            const showHeld = ( found: ReturnType<HeldBy['of']> ): void => {
+                const key = found.map( r => `${r.name}.${r.member ?? ''}` ).join( ',' );
+                if ( key !== heldKey ) {
+                    heldKey = key;
+                    held.replaceChildren( ...( found.length ? [heldBy.render( found )!] : [] ) );
+                }
+            };
+
             function update( force: boolean ): void {
                 const text = input.value;
                 const parsed = model.reader.parse( text );
@@ -94,6 +106,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                 if ( !parsed.ok ) {
                     message.textContent = `${parsed.error} (at ${parsed.at})`;
                     out.replaceChildren();
+                    showHeld( [] );
                     pin.disabled = true;
                     current = { value: undefined, ok: false };
                     signature = '';
@@ -105,6 +118,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                     message.textContent = `⊘ ${evaluation.message}`;
                     message.classList.add( 'kd-error' );
                     out.replaceChildren();
+                    showHeld( [] );
                     pin.disabled = true;
                     current = { value: undefined, ok: false };
                     signature = '';
@@ -113,6 +127,7 @@ export function createInspectPanel( ctx: DebugContext, model: WatchModel, onTrac
                 message.textContent = '';
                 current = { value: evaluation.value, ok: true };
                 pin.disabled = typeof evaluation.value !== 'object' || evaluation.value === null;
+                showHeld( heldBy.of( evaluation.value ) );
                 // Redraw only when what is shown changed; the opened nodes are kept in `state`.
                 const next = `${text}\u0003${JSON.stringify( copyValue( evaluation.value ) )}\u0003${safe( () => adapter.reactivity?.nodeOf( evaluation.value )?.version )}`;
                 if ( next === signature && !force ) {

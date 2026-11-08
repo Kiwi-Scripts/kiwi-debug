@@ -74,16 +74,25 @@ export const playgroundAdapter = defineAdapter( {
     },
 
     addressing: {
-        // The position among all elements that carry the identifier: stable across reloads of the same page.
+        // A unit with a key is addressed by it (`Name@key`), so it is found again when its element was re-created; any other by its
+        // position among all elements that carry the identifier (`Name#index`). Both are stable across reloads of the same page.
         of: ( unit, el ) => {
-            const { name } = unit as PlaygroundUnit;
-            return `${name}#${Array.from( document.querySelectorAll( `[${UNIT_ATTR}~="${name}"]` ) ).indexOf( el )}`;
+            const { name, key } = unit as PlaygroundUnit;
+            return key !== undefined ? `${name}@${key}` : `${name}#${Array.from( document.querySelectorAll( `[${UNIT_ATTR}~="${name}"]` ) ).indexOf( el )}`;
         },
         resolve: address => {
-            const [name, index] = address.split( '#' );
-            const el = document.querySelectorAll( `[${UNIT_ATTR}~="${name}"]` )[Number( index )];
-            const unit = el && unitsOn( el ).find( u => u.name === name );
-            return unit && isUnit( unit ) ? { unit, element: el } : undefined;
+            const [, name, sep, rest] = /^([^#@]+)([#@])(.*)$/.exec( address ) ?? [];
+            if ( !name ) {
+                return undefined;
+            }
+            const elements = Array.from( document.querySelectorAll( `[${UNIT_ATTR}~="${name}"]` ) );
+            for ( const [index, el] of elements.entries() ) {
+                const unit = unitsOn( el ).find( u => u.name === name );
+                if ( unit && ( sep === '@' ? unit.key === rest : String( index ) === rest ) ) {
+                    return { unit, element: el };
+                }
+            }
+            return undefined;
         }
     }
 } );

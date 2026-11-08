@@ -54,3 +54,9 @@
 .kd-inspect-msg { margin-top: 6px; min-height: 1em; color: var(--kp-muted); }
 .kd-inspect-msg.kd-error, .kd-error { color: #f44747; }
 .kd-inspect-out { margin-top: 6px; }
+
+/* Tracked entries and references that are not on the page */
+.kd-gone { opacity: 0.7; }
+.kd-held { gap: 6px; }
+.kd-ref { color: var(--kp-info); }
+.kd-inspect-held { margin-top: 6px; }

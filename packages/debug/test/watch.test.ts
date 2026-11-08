@@ -119,6 +119,53 @@ describe( 'watch model', () => {
         expect( second.rowsOf( second.entries[0] ).map( r => r.name ) ).toEqual( ['title'] );
     } );
 
+    it( 'marks an entry as gone when its element leaves, and gives it the unit that shows up at its address', () => {
+        const { card, el } = page();
+        const { model } = make();
+        model.tracking.toggleValueWatch( { unit: card, element: el( 'card' ) }, 'inputs', 'title' );
+        const [entry] = model.entries;
+        expect( model.reconcile() ).toBe( false );
+
+        el( 'card' ).remove();
+        expect( model.reconcile() ).toBe( true );
+        expect( entry.gone ).toBe( true );
+        expect( model.entries ).toHaveLength( 1 );
+
+        const fresh = document.createElement( 'section' );
+        el( 'app' ).prepend( fresh );
+        const again = fake.world.unit( { name: 'Card', element: fresh, inputs: { title: 'Back' } } );
+        expect( model.reconcile() ).toBe( true );
+        expect( entry.gone ).toBe( false );
+        expect( entry.unit ).toBe( again );
+        expect( entry.element ).toBe( fresh );
+        expect( model.rowsOf( entry ).map( r => [r.name, r.read()] ) ).toEqual( [['title', 'Back']] );
+        expect( model.indexOf( fresh ) ).toBe( 1 );
+    } );
+
+    it( 'keeps the pins of an earlier page load, found again through their path', () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = '<main id="app"><section id="card"></section></main>';
+        const element = document.getElementById( 'card' )!;
+        const cfg = { a: { b: 1 } };
+        const unit = fake.world.unit( { name: 'Card', element, properties: { cfg } } );
+        const storage = memoryStorage();
+        const first = make( storage ).model;
+        const pin = first.pinValue( { unit, element }, 'cfg.a', cfg.a, 'Card.cfg.a' );
+        first.toggleExpression( undefined, `${pin.id}.b` );
+        expect( JSON.parse( storage.get( 'pins:/p' )! ) ).toEqual( [{ id: '$1', origin: 'Card.cfg.a', paths: ['$1.b'], expression: 'cfg.a', address: '0/0=Card' }] );
+        stop!();
+
+        const second = make( storage ).model;
+        second.startRestore();
+        expect( second.pins.list() ).toHaveLength( 0 );
+        vi.advanceTimersByTime( 600 );
+        const [restored] = second.pins.list();
+        expect( [restored.id, restored.origin, Array.from( restored.paths )] ).toEqual( ['$1', 'Card.cfg.a', ['$1.b']] );
+        expect( second.pins.resolve( '$1' ) ).toBe( cfg.a );
+        expect( second.pinValue( { unit, element }, 'cfg', cfg, 'Card.cfg' ).id ).toBe( '$2' );
+        expect( second.reader.read( undefined, '$1.b' ) ).toBe( 1 );
+    } );
+
     it( 'retries until the units exist and then gives up on the rest', () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<main id="app"></main>';
@@ -180,7 +227,7 @@ describe( 'watch feature', () => {
         expect( panelEl().textContent ).toContain( '(was 1)' );
     } );
 
-    it( 'drops entries whose element left the page', () => {
+    it( 'keeps entries whose element left the page, as waiting', () => {
         vi.useFakeTimers();
         const { el } = page();
         dispose = mountOverlay( options() );
@@ -189,6 +236,8 @@ describe( 'watch feature', () => {
         el( 'card' ).remove();
         fake.world.render();
         vi.advanceTimersByTime( 300 );
-        expect( panelEl().textContent ).toContain( 'Tracked values (0)' );
+        expect( panelEl().textContent ).toContain( 'Tracked values (1)' );
+        expect( panelEl().textContent ).toContain( 'gone' );
+        expect( panelEl().textContent ).toContain( 'Waiting for' );
     } );
 } );

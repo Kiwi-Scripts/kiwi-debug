@@ -5,7 +5,7 @@ import type { Tracking, TrackTarget } from '../../core/services';
 import type { DebugContext } from '../../core/types';
 import type { TrackedRow } from '../../core/units';
 import { createPathReader, EXPRESSIONS, type PathReader } from './paths';
-import { createPins, type Pins } from './pins';
+import { createPins, unitOf, type Pin, type PinSource, type Pins } from './pins';
 
 export const DEFAULT_TRACKED_COLORS = ['#ff9800', '#4fc3f7', '#7cc05b', '#d66ad6', '#e5c07b', '#f44747', '#9cdcfe', '#c586c0'];
 
@@ -31,6 +31,11 @@ export interface WatchEntry {
     selected: Set<string>;
     expanded: boolean;
     address?: string;
+    /**
+     * The element left the page and nothing has been found at the address since. The entry keeps what it tracks and takes the
+     * unit that shows up at its address again; until then it is shown as waiting.
+     */
+    gone: boolean;
 }
 
 /** The marker in a stored list that says the entry tracks all members besides the listed values. */
@@ -38,6 +43,15 @@ const ALL = '*';
 
 /** What is stored per address: the tracked values, `null` for all members, or both (`*` and the expressions). */
 type Stored = Record<string, string[] | null>;
+
+/** What is stored per pin: the path that leads to its object, and where that starts. */
+interface StoredPin {
+    id: string;
+    origin: string;
+    paths: string[];
+    expression: string;
+    address?: string;
+}
 
 export interface WatchModel {
     readonly entries: readonly WatchEntry[];
@@ -58,6 +72,13 @@ export interface WatchModel {
     /** Tracks the expression, or stops tracking it. Returns whether it is tracked now; `undefined` if it cannot be tracked. */
     toggleExpression( target: TrackTarget | undefined, text: string ): boolean | undefined;
     onChange( cb: () => void ): () => void;
+    /** Pins the object a path leads to (see {@link Pins.pin}); the path is kept so that the pin is found again after a reload. */
+    pinValue( target: TrackTarget | undefined, text: string, object: object, origin: string ): Pin;
+    /**
+     * Looks after the entries and pins against the page: entries whose element left are marked as waiting, and take the unit that
+     * shows up at their address; pins whose object is gone are pointed at what their path leads to now. Returns whether anything changed.
+     */
+    reconcile(): boolean;
     /** Starts resolving the stored addresses; the first attempt comes after one interval, never synchronously. */
     startRestore(): void;
     dispose(): void;
@@ -74,6 +95,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     const { adapter } = ctx;
     const palette = options.palette?.length ? options.palette : DEFAULT_TRACKED_COLORS;
     const storeKey = `tracked:${options.path}`;
+    const pinsKey = `pins:${options.path}`;
     const pins = createPins();
     const reader = createPathReader( ctx, pins );
     const entries: WatchEntry[] = [];
@@ -82,6 +104,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
     let counter = 0;
     /** Addresses stored by an earlier page load that were not resolved (yet); kept so that a quick reload does not lose them. */
     let pending: Stored = {};
+    let pendingPins: StoredPin[] = [];
     let timer: ReturnType<typeof setInterval> | undefined;
     let restoreUntil = 0;
 
@@ -90,7 +113,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
         save();
         notify();
     };
-    pins.onChange( notify );
+    pins.onChange( changed );
 
     function save(): void {
         const stored: Stored = { ...pending };
@@ -103,6 +126,14 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             options.storage.set( storeKey, JSON.stringify( stored ) );
         } else {
             options.storage.remove( storeKey );
+        }
+        const storedPins: StoredPin[] = [...pendingPins, ...pins.list().filter( p => p.source ).map( p => ( {
+            id: p.id, origin: p.origin, paths: Array.from( p.paths ), expression: p.source!.expression, address: p.source!.address
+        } ) )];
+        if ( storedPins.length ) {
+            options.storage.set( pinsKey, JSON.stringify( storedPins ) );
+        } else {
+            options.storage.remove( pinsKey );
         }
     }
 
@@ -118,7 +149,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
         const description = adapter.units.describe( target.unit );
         const entry: WatchEntry = {
             id: `w${++counter}`, unit: target.unit, element: target.element, kind: description.kind, name: description.name,
-            all: false, selected: new Set(), expanded: true,
+            all: false, selected: new Set(), expanded: true, gone: false,
             address: adapter.addressing?.of( target.unit, target.element ),
             ...patch
         };
@@ -134,6 +165,25 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
         }
         entries.splice( at, 0, entry );
         return entry;
+    };
+
+    /** Moves what is known about an element (color, outline, place in the numbering) to the one that replaces it. */
+    const replaceElement = ( old: Element, next: Element ): void => {
+        const info = elements.get( old );
+        if ( !info || old === next || entries.some( e => e.element === old ) ) {
+            return;
+        }
+        const copy = Array.from( elements );
+        elements.clear();
+        for ( const [el, value] of copy ) {
+            if ( el === old ) {
+                if ( !copy.some( ( [other] ) => other === next ) ) {
+                    elements.set( next, value );
+                }
+            } else {
+                elements.set( el, value );
+            }
+        }
     };
 
     const removeEntry = ( entry: WatchEntry ): void => {
@@ -202,6 +252,47 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
         }
     };
 
+    /** The object a pin's source path leads to now, if it can be followed. */
+    const followSource = ( expression: string, source: Pick<PinSource, 'address' | 'unit' | 'element'> | undefined ): { object: object; unit?: Unit; element?: Element } | undefined => {
+        const parsed = reader.parse( expression );
+        if ( !parsed.ok ) {
+            return undefined;
+        }
+        let unit: Unit | undefined;
+        let element: Element | undefined;
+        if ( parsed.expression.base.kind === 'unit' ) {
+            const found = source?.address ? adapter.addressing?.resolve( source.address ) : undefined;
+            unit = found?.unit ?? unitOf( source );
+            element = found ? found.element : source?.element?.deref();
+            if ( !unit ) {
+                return undefined;
+            }
+        }
+        const result = reader.evaluate( unit, parsed.expression );
+        return result.ok && typeof result.value === 'object' && result.value !== null ? { object: result.value, unit, element } : undefined;
+    };
+
+    const weak = ( value: unknown ): WeakRef<object> | undefined => typeof value === 'object' && value !== null ? new WeakRef( value ) : undefined;
+
+    const sourceOf = ( target: TrackTarget | undefined, expression: string ): PinSource => ( {
+        expression,
+        address: target?.unit && target.element ? adapter.addressing?.of( target.unit, target.element ) : undefined,
+        unit: weak( target?.unit ),
+        element: target?.element ? new WeakRef( target.element ) : undefined
+    } );
+
+    const restorePin = ( stored: StoredPin ): boolean => {
+        const followed = followSource( stored.expression, { address: stored.address } );
+        if ( !followed ) {
+            return false;
+        }
+        pins.restore( { ...stored, source: {
+            expression: stored.expression, address: stored.address, unit: weak( followed.unit ),
+            element: followed.element && new WeakRef( followed.element )
+        } }, followed.object );
+        return true;
+    };
+
     const restoreStep = (): void => {
         const addresses = Object.keys( pending );
         let restored = false;
@@ -216,13 +307,16 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             delete pending[address];
             restored = true;
         }
-        if ( restored ) {
+        const waiting = pendingPins.length;
+        pendingPins = pendingPins.filter( stored => !restorePin( stored ) );
+        if ( restored || pendingPins.length !== waiting ) {
             changed();
         }
-        if ( !Object.keys( pending ).length || Date.now() > restoreUntil ) {
+        if ( !( Object.keys( pending ).length + pendingPins.length ) || Date.now() > restoreUntil ) {
             stopRestore();
             // What did not match any more is dropped from the store.
             pending = {};
+            pendingPins = [];
             save();
         }
     };
@@ -290,7 +384,7 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
                 if ( on && result.expression.segments.length ) {
                     pin.paths.add( canonical );
                 }
-                notify();
+                changed();
                 return on && result.expression.segments.length > 0;
             }
             if ( !target?.element ) {
@@ -309,6 +403,42 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             listeners.add( cb );
             return () => void listeners.delete( cb );
         },
+        pinValue( target, text, object, origin ) {
+            return pins.pin( object, origin, sourceOf( target, reader.canonical( text ) ?? text ) );
+        },
+        reconcile() {
+            let any = false;
+            for ( const entry of entries ) {
+                const gone = !entry.element.isConnected;
+                if ( gone && entry.address && adapter.addressing ) {
+                    const found = adapter.addressing.resolve( entry.address );
+                    if ( found?.element.isConnected && !entries.some( e => e !== entry && e.unit === found.unit ) ) {
+                        const old = entry.element;
+                        const description = adapter.units.describe( found.unit );
+                        entry.unit = found.unit;
+                        entry.element = found.element;
+                        entry.kind = description.kind;
+                        entry.name = description.name;
+                        entry.gone = false;
+                        replaceElement( old, found.element );
+                        any = true;
+                        continue;
+                    }
+                }
+                if ( entry.gone !== gone ) {
+                    entry.gone = gone;
+                    any = true;
+                }
+            }
+            for ( const pin of pins.list() ) {
+                const followed = pin.source && !pins.resolve( pin.id ) ? followSource( pin.source.expression, pin.source ) : undefined;
+                if ( followed ) {
+                    pins.rebind( pin.id, followed.object );
+                    any = true;
+                }
+            }
+            return any;
+        },
         startRestore() {
             if ( !adapter.addressing ) {
                 return;
@@ -318,7 +448,12 @@ export function createWatchModel( ctx: DebugContext, options: WatchModelOptions 
             } catch {
                 pending = {};
             }
-            if ( !Object.keys( pending ).length ) {
+            try {
+                pendingPins = ( JSON.parse( options.storage.get( pinsKey ) ?? '[]' ) as StoredPin[] ).sort( ( a, b ) => Number( a.id.slice( 1 ) ) - Number( b.id.slice( 1 ) ) );
+            } catch {
+                pendingPins = [];
+            }
+            if ( !Object.keys( pending ).length && !pendingPins.length ) {
                 return;
             }
             restoreUntil = Date.now() + RESTORE_FOR_MS;

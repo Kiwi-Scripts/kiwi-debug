@@ -9,6 +9,7 @@ import { createDirectiveView } from '../../core/directive-view';
 import { ICONS } from '../../core/icons';
 import { Tracking, type TrackTarget } from '../../core/services';
 import type { DebugContext, DebugFeature, FeatureInstance } from '../../core/types';
+import { createHeldBy } from './held-by';
 import { createInspectPanel } from './inspect-panel';
 import { createWatchModel, type WatchEntry } from './model';
 import { EXPRESSIONS } from './paths';
@@ -33,6 +34,8 @@ function setup( ctx: DebugContext ): FeatureInstance {
         path: typeof location === 'undefined' ? '/' : location.pathname,
         palette: ctx.options.trackedColors
     } );
+    const heldBy = createHeldBy( ctx );
+    const referencesOf = ( pin: Pin ) => heldBy.of( model.pins.resolve( pin.id ) );
     const panel = (): PanelHandle | undefined => overlay.panels.get( 'watch' );
 
     let pc: PanelContext | undefined;
@@ -46,7 +49,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
 
     // ---------------------------------------------------------------- outlines of kept elements
     const syncOutlines = (): void => {
-        const wanted = new Set( model.entries.map( e => e.element ).filter( el => model.isOutlined( el ) ) );
+        const wanted = new Set( model.entries.map( e => e.element ).filter( el => el.isConnected && model.isOutlined( el ) ) );
         for ( const [el, box] of outlines ) {
             if ( !wanted.has( el ) ) {
                 box.remove();
@@ -68,13 +71,6 @@ function setup( ctx: DebugContext ): FeatureInstance {
     };
 
     // ---------------------------------------------------------------- state
-    /** Entries whose element left the page are dropped. */
-    const dropGone = (): boolean => {
-        const gone = model.entries.filter( e => !e.element.isConnected );
-        gone.forEach( e => model.remove( e.id ) );
-        return gone.length > 0;
-    };
-
     const isSeen = ( key: string ): boolean => {
         if ( !visible() || !root ) {
             return false;
@@ -87,7 +83,33 @@ function setup( ctx: DebugContext ): FeatureInstance {
     };
 
     // ---------------------------------------------------------------- rendering
+    /** An entry whose element is not on the page: it keeps what it tracks and waits for its address to show up again. */
+    const renderGone = ( entry: WatchEntry ): HTMLElement => {
+        const color = model.colorOf( entry.element );
+        const marker = span( 'kd-index', String( model.indexOf( entry.element ) ) );
+        marker.style.background = color;
+        const details = renderDetails( {
+            className: 'kp-dir kd-entry kd-gone',
+            key: entry.id,
+            open: entry.expanded,
+            headRow: true,
+            head: [marker, span( 'kd-name', entry.name ), badge( 'gone' ), button( '✕', 'Stop tracking', () => model.remove( entry.id ), { mini: true } )],
+            body: () => [
+                div( 'kp-muted kd-hint', entry.address ? `Not on the page. Waiting for ${entry.address} to show up again.` : 'Not on the page, and it cannot be found again (the adapter has no addressing).' ),
+                ...( entry.all ? ['all members'] : Array.from( entry.selected ) ).map( name => div( 'kp-row kd-row kp-muted', `${name} = ⊘` ) )
+            ],
+            onToggle: expanded => {
+                entry.expanded = expanded;
+            }
+        } );
+        details.style.borderLeft = `3px dashed ${color}`;
+        return details;
+    };
+
     const renderEntry = ( entry: WatchEntry, snapshot: ReturnType<typeof changes.snapshot> ): HTMLElement => {
+        if ( entry.gone ) {
+            return renderGone( entry );
+        }
         const color = model.colorOf( entry.element );
         const target = { unit: entry.unit, element: entry.element };
         const head: ( Node | string )[] = [];
@@ -139,18 +161,23 @@ function setup( ctx: DebugContext ): FeatureInstance {
 
     const renderPin = ( pin: Pin, snapshot: ReturnType<typeof changes.snapshot> ): HTMLElement => {
         const gone = !model.pins.resolve( pin.id );
+        const source = pin.source?.element?.deref();
         const head: ( Node | string )[] = [span( 'kd-index', pin.id ), span( 'kp-muted', pin.origin )];
+        if ( source?.isConnected ) {
+            head[1] = span( 'kp-muted', pin.origin, 'Found through this path; the element is highlighted while hovering' );
+        }
         if ( gone ) {
             head.push( badge( 'gone' ) );
         }
         head.push( button( '✕', 'Remove this reference', () => model.pins.remove( pin.id ), { mini: true } ) );
-        return renderDetails( {
+        const held = referencesOf( pin );
+        const details = renderDetails( {
             className: 'kp-dir kd-pin',
             key: `pin:${pin.id}`,
             open: true,
             headRow: true,
             head,
-            body: () => pinRows( pin ).map( text => {
+            body: () => [...pinRows( pin ).map( text => {
                 const key = rowKey( pin.id, EXPRESSIONS, text );
                 const row = div( 'kp-row kd-row' );
                 if ( text !== pin.id ) {
@@ -162,8 +189,11 @@ function setup( ctx: DebugContext ): FeatureInstance {
                 changes.markRow( row, key );
                 row.onmouseenter = () => changes.dismiss( key );
                 return row;
-            } )
+            } ), ...( held.length ? [heldBy.render( held )!] : [] )]
         } );
+        details.onmouseenter = () => source?.isConnected && ctx.highlightHover( source );
+        details.onmouseleave = () => ctx.highlightHover( null );
+        return details;
     };
 
     const renderSide = (): HTMLElement | undefined => {
@@ -213,15 +243,15 @@ function setup( ctx: DebugContext ): FeatureInstance {
         if ( !pc ) {
             return;
         }
-        if ( dropGone() ) {
+        if ( model.reconcile() ) {
             signature = '';
         }
-        const refs = model.entries.flatMap( entry => model.rowsOf( entry ).map( r => ( { scope: entry.id, category: r.category, name: r.name, read: r.read } ) ) );
+        const refs = model.entries.filter( e => !e.gone ).flatMap( entry => model.rowsOf( entry ).map( r => ( { scope: entry.id, category: r.category, name: r.name, read: r.read } ) ) );
         const pinRefs = model.pins.list().flatMap( pin => pinRows( pin ).map( text => ( { scope: pin.id, category: EXPRESSIONS, name: text, read: () => model.reader.read( undefined, text ) } ) ) );
         const snapshot = changes.snapshot( [...refs, ...pinRefs] );
         const structure = [
-            ...model.entries.map( e => `${e.id}${e.all ? '*' : ''}${model.colorOf( e.element )}${model.isOutlined( e.element )}` ),
-            ...model.pins.list().map( p => `${p.id}${pinRows( p ).join( '+' )}${model.pins.resolve( p.id ) ? '' : 'gone'}` )
+            ...model.entries.map( e => `${e.id}${e.all ? '*' : ''}${e.gone ? 'gone' : ''}${model.colorOf( e.element )}${model.isOutlined( e.element )}` ),
+            ...model.pins.list().map( p => `${p.id}${pinRows( p ).join( '+' )}${model.pins.resolve( p.id ) ? '' : 'gone'}${referencesOf( p ).map( r => `${r.name}.${r.member ?? ''}` ).join( ',' )}` )
         ].join( ',' );
         const next = `${structure}\u0003${side ? 'side' : ''}\u0003${changes.signatureOf( snapshot )}`;
         if ( next === signature ) {
@@ -318,7 +348,7 @@ function setup( ctx: DebugContext ): FeatureInstance {
             return false;
         }
     }];
-    const inspectPanel = createInspectPanel( ctx, model, () => {
+    const inspectPanel = createInspectPanel( ctx, model, heldBy, () => {
         reveal();
         signature = '';
         refresh();
@@ -330,6 +360,11 @@ function setup( ctx: DebugContext ): FeatureInstance {
         panel: definition,
         panels: [inspectPanel],
         hotkeys,
+        // Entries find their units again, and outlines follow their elements, while the list is not shown.
+        refresh: () => {
+            model.reconcile();
+            syncOutlines();
+        },
         listeners: [[window, 'scroll', reposition, true], [window, 'resize', reposition, false]],
         dispose() {
             offChange();

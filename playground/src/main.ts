@@ -44,6 +44,8 @@ const hints = [
     ['Changes', 'Use the buttons of the counters, todos and "touch": changed values flash and keep "(was …)". Set valueDetail to detail and press "move" to see nested changes.'],
     ['Inspect', 'Click ⌕ on the user row of the User card, then try user.address.geo, user.manager.reports[0].name, scores[100], fullName or _cache.hits. Click names in the tree to extend the path.'],
     ['Pin', 'In the inspect panel pin an object (Pin), then type $1.name and Track it. References stay until you remove them.'],
+    ['Held by', 'Pin the logger of the Apples ($1) in the inspect panel: the References list shows which units hold the same instance. The Pears have one of their own. Pins and their paths come back after a reload.'],
+    ['Lists', 'Track a todo item, then switch the list filter: the entry waits as "gone" and takes the item back when the item shows up again.'],
     ['Triggers', 'The Ticker writes from a timer, so no click is behind its changes. Pause it to watch the rest.'],
     ['Latch', 'Modifier + L latches the modifier so you need not hold it. Modifier + M pins the tray. The power button switches the overlay off; the launcher switches it on.']
 ];

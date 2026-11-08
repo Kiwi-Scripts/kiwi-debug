@@ -19,6 +19,9 @@ function tooltip( el: Element, text: string, placement = 'top' ): void {
 // ---------------------------------------------------------------------------------------------------------------------
 // Counter
 
+/** A service that several units are given: the Pears get an instance of their own, as if the injector had been overridden for them. */
+const appLogger = { level: 'debug', lines: [] as string[] };
+
 class CounterState {
     readonly count: Signal<number>;
     readonly double;
@@ -28,7 +31,7 @@ class CounterState {
     /** Not a member (it starts with an underscore), but reachable through an expression: `_cache.hits`. */
     _cache = { hits: 0, byStep: new Map<number, number>() };
 
-    constructor( public label: string, public step: number, start: number ) {
+    constructor( public label: string, public step: number, start: number, public logger = appLogger ) {
         this.count = signal( start, `${label} count` );
         this.double = computed( () => this.count.get() * 2, `${label} double` );
     }
@@ -46,9 +49,9 @@ class CounterState {
     }
 }
 
-function counter( label: string, step: number, start = 0 ): HTMLElement {
+function counter( label: string, step: number, start = 0, logger = appLogger ): HTMLElement {
     const root = htmlEl( 'section', { class: 'card' } );
-    const state = new CounterState( label, step, start );
+    const state = new CounterState( label, step, start, logger );
     const text = htmlEl( 'span', { class: 'value' } );
     const plus = htmlEl( 'button', { text: `+${step}`, on: { click: () => state.bump( step ) } } );
     const minus = htmlEl( 'button', { text: `-${step}`, on: { click: () => state.bump( -step ) } } );
@@ -88,6 +91,7 @@ function todoItem( item: Todo, remove: () => void ): HTMLElement {
     li.append( box, label, del );
     tooltip( del, 'Remove' );
     attach( li, 'TodoItem', { todo: item, selected: false }, {
+        key: String( item.id ),
         inputs: ['todo'],
         render: () => {
             box.checked = item.done.get();
@@ -197,7 +201,7 @@ function userCard(): HTMLElement {
 
 function ticker(): HTMLElement {
     const root = htmlEl( 'section', { class: 'card' } );
-    const state = { ticks: signal( 0, 'ticks' ), interval: 1000, running: signal( true, 'running' ), startedAt: new Date() };
+    const state = { logger: appLogger, ticks: signal( 0, 'ticks' ), interval: 1000, running: signal( true, 'running' ), startedAt: new Date() };
     const text = htmlEl( 'span', { class: 'value' } );
     const toggle = htmlEl( 'button', { text: 'pause', on: { click: () => state.running.update( v => !v ) } } );
     root.append( htmlEl( 'h3', { text: 'Ticker' } ), text, htmlEl( 'div', { class: 'row' }, toggle ) );
@@ -240,7 +244,7 @@ function multi(): HTMLElement {
 export function buildApp( container: HTMLElement ): void {
     const shell = htmlEl( 'main', { class: 'app' } );
     const grid = htmlEl( 'div', { class: 'grid' } );
-    grid.append( counter( 'Apples', 1, 3 ), counter( 'Pears', 5 ), todoList(), userCard(), ticker(), multi() );
+    grid.append( counter( 'Apples', 1, 3 ), counter( 'Pears', 5, 0, { level: 'warn', lines: [] } ), todoList(), userCard(), ticker(), multi() );
     shell.append( htmlEl( 'h2', { text: 'Demo app' } ), grid );
     const config = { env: 'playground', flags: { beta: true, experiments: ['a', 'b'] }, startedAt: new Date() };
     attach( shell, 'AppRoot', { title: 'Kiwi playground', theme: signal<'dark' | 'light'>( 'dark', 'theme' ), config }, {

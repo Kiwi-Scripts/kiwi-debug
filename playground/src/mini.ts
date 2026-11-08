@@ -224,6 +224,8 @@ export function inTask<T>( name: string, fn: () => T ): T {
 
 export interface UnitOptions {
     kind?: 'component' | 'directive';
+    /** Identifies the unit among its siblings (e.g. the id of a list item), so that its address survives a re-render of the list. */
+    key?: string;
     /** Names of the instance properties that are inputs. */
     inputs?: string[];
     /** Names of the instance properties that are outputs. */
@@ -236,6 +238,7 @@ export interface UnitOptions {
 export interface PlaygroundUnit {
     readonly name: string;
     readonly kind: 'component' | 'directive';
+    readonly key?: string;
     readonly element: Element;
     readonly instance: object;
     readonly inputs: readonly string[];
@@ -262,7 +265,7 @@ export function attach<T extends object>(
     el: Element, name: string, instance: T, options: UnitOptions & { render?: ( self: T ) => void } = {}
 ): T {
     const unit: PlaygroundUnit = {
-        name, kind: options.kind ?? 'component', element: el, instance,
+        name, kind: options.kind ?? 'component', key: options.key, element: el, instance,
         inputs: options.inputs ?? [], outputs: options.outputs ?? [], providers: options.providers ?? []
     };
     const list = [...unitsOn( el ), unit].sort( ( a, b ) => Number( b.kind === 'component' ) - Number( a.kind === 'component' ) );
