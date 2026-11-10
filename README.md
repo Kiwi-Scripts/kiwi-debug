@@ -15,10 +15,13 @@ Dependencies: `debug-angular` → `debug` → `@kiwi-js/dom` and `@kiwi-js/panel
 
 ## Development
 
-An npm workspace; one `npm install` at the root.
+The playground and checks use `@kiwi-js/dom` and `@kiwi-js/panels` from their Git repositories; neither is installed from npm. From a fresh clone, run the setup script from the repository root:
+
+Requires Git, npm, and a Node.js version supported by the Angular dev dependencies (with the current lockfile: 22.22.3+, 24.15.0+, or 26+).
 
 ```bash
-npm install
+npm run setup:playground
+npm run playground   # serves http://localhost:5199
 npm run check        # typecheck, test and build every package
 npm run typecheck
 npm test
@@ -26,12 +29,14 @@ npm run build        # debug, then debug-angular
 npm run pack:dry     # lists what each package would publish
 ```
 
+- **Setup script:** clones `Kiwi-Scripts/kiwi-dom` and `Kiwi-Scripts/kiwi-panels` into sibling directories (`../kiwi-dom` and `../kiwi-panels`) if they are missing, installs npm dependencies in all three projects, and builds both sibling packages. It reuses existing sibling checkouts only when their package name and Git origin match; it does not pull, reset, or overwrite existing checkouts. To update those sources, update each checkout yourself and rerun `npm run setup:playground`.
 - **Playground:** `npm run playground` serves a page at http://localhost:5199 with a tiny framework (signals, computed values, units attached to elements under identifiers), a dummy adapter for it ([playground/src/adapter.ts](playground/src/adapter.ts), a compact example of what an adapter does) and a demo app with deliberately varied data. A control bar changes the overlay's options live (modifier, `valueDetail`, action presets, on/off); the "Things to try" list walks through the features. `@kiwi-js/debug` resolves to the sources here, `@kiwi-js/panels` and `@kiwi-js/dom` to the built sibling projects.
 - **No build needed between the workspace packages:** tests and type checking resolve them to their sources (`paths` in `tsconfig.base.json`, aliases in `tooling/aliases.ts`; keep the two in sync). Builds resolve them through `node_modules`, so build order matters.
-- **Sibling projects:** `@kiwi-js/panels` and `@kiwi-js/dom` are not on npm yet, so they are linked from sibling checkouts (`../kiwi-panels`, `../kiwi-dom`), which must be built first (`npm run build` in each; `npm run dev` there rebuilds on change). `panels` is a `file:` dev dependency of `packages/debug`; `dom` is redirected by `overrides` in the root `package.json` (the root is private, so this never reaches a published package, which keeps a plain `dependencies` range). Once they are published, remove the `file:` link and the override. The published `debug` declares `panels` as a peer dependency, `>=0.0.0` for now; tighten the range with the first panels release.
 - **Internal version ranges** are `^0.0.0`, which means exactly `0.0.0` while versions are `0.0.x`. Bump the ranges together with the versions (or move to a release tool such as changesets before the first publish).
 
 ## Publishing
+
+The packages are not currently published to npm. The notes below describe a future release process; local development and the playground use the Git checkouts above.
 
 Every package has `publishConfig.access: public`, ships `dist` (ESM, CJS and type declarations for both) with its README and LICENCE, and runs typecheck, tests and build in `prepublishOnly`. Publish in dependency order: `@kiwi-js/dom` and `@kiwi-js/panels` (their own projects) first, then `debug`, then `debug-angular`.
 
